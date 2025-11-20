@@ -278,7 +278,7 @@ class BotApplication:
             return
         self.thread, self.logger = handle_thread_finished(self.ui, self.thread, self.logger)
         update_layout(self.ui, self.logger)
-        
+
         # Update model connection status
         if self.thread and self.thread.is_alive():
             values = self.current_values
@@ -296,7 +296,7 @@ class BotApplication:
                     self.ui.set_model_connection_status(False)
             else:
                 self.ui.set_model_connection_status(False)
-        
+
         if hasattr(self.logger, "action_needed") and self.logger.action_needed:
             action_text = getattr(self.logger, "action_text", "Continue")
             self.ui.show_action_button(action_text, self._dispatch_action)
