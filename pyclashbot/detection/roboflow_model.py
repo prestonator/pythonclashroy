@@ -45,7 +45,9 @@ class RoboflowModel(DetectionModel):
         # Initialize the inference client if credentials are provided
         if self.api_key and self.model_id:
             try:
-                from inference_sdk import InferenceHTTPClient  # noqa: PLC0415
+                from inference_sdk import (  # noqa: PLC0415
+                    InferenceHTTPClient,
+                )
 
                 self.inference_client = InferenceHTTPClient(
                     api_url="https://detect.roboflow.com",
@@ -65,7 +67,8 @@ class RoboflowModel(DetectionModel):
 
         Args:
             image: Input image as numpy array (RGB format)
-            **kwargs: Additional inference parameters (e.g., confidence, overlap)
+            **kwargs: Additional inference parameters (not used directly,
+                     confidence is set via InferenceConfiguration)
 
         Returns:
             list[dict]: List of detection results
@@ -81,13 +84,22 @@ class RoboflowModel(DetectionModel):
             else:
                 return []
 
-            # Run inference
-            result = self.inference_client.infer(
-                image_data,
-                model_id=self.model_id,
-                confidence=kwargs.get("confidence", self.confidence),
-                **kwargs,
+            # Use InferenceConfiguration to set confidence threshold
+            from inference_sdk import InferenceConfiguration  # noqa: PLC0415
+
+            # Get confidence threshold from kwargs or use default
+            confidence_threshold = kwargs.get("confidence", self.confidence)
+            
+            config = InferenceConfiguration(
+                confidence_threshold=confidence_threshold,
             )
+
+            # Run inference with configuration context manager
+            with self.inference_client.use_configuration(config):
+                result = self.inference_client.infer(
+                    image_data,
+                    model_id=self.model_id,
+                )
 
             # Convert Roboflow result format to our standard format
             predictions = []
