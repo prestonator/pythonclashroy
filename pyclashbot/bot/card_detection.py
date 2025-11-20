@@ -4,6 +4,9 @@ from collections import Counter
 
 import numpy
 
+# Global detector instance for model-based card detection
+_global_detector = None
+
 # play coord data
 PLAY_COORDS = {
     # done
@@ -6229,9 +6232,108 @@ def check_for_champion_ability(a, b, c):
     return False
 
 
-def identify_hand_cards(emulator, card_index):
+def initialize_card_detector(model_config: dict = None):
+    """Initialize the global card detector with optional ML model.
+    
+    Args:
+        model_config: Dictionary containing:
+            - model_enabled: bool, whether to enable model detection
+            - model_type: str, type of model (e.g., 'roboflow')
+            - roboflow_api_key: str, API key for Roboflow
+            - roboflow_model_id: str, model ID for Roboflow
+            - confidence_threshold: float, minimum confidence for model predictions
+    """
+    global _global_detector
+    
+    if not model_config or not model_config.get('model_enabled', False):
+        _global_detector = None
+        return
+    
+    try:
+        from pyclashbot.detection.hybrid_detector import create_detector_from_config
+        
+        # Build configuration for hybrid detector
+        detector_config = {
+            'model_type': model_config.get('model_type', 'roboflow'),
+            'model_config': {
+                'api_key': model_config.get('roboflow_api_key'),
+                'model_id': model_config.get('roboflow_model_id'),
+                'confidence': model_config.get('confidence_threshold', 0.7),
+            },
+            'use_model_first': True,
+            'confidence_threshold': model_config.get('confidence_threshold', 0.7),
+        }
+        
+        _global_detector = create_detector_from_config(detector_config)
+    except Exception as e:
+        print(f"Warning: Failed to initialize card detector: {e}")
+        _global_detector = None
+
+
+def get_card_detector():
+    """Get the global card detector instance.
+    
+    Returns:
+        HybridDetector or None
+    """
+    return _global_detector
+
+
+def identify_hand_cards(emulator, card_index, detector=None, logger=None):
+    """Identify a card in hand using hybrid detection (model + traditional fallback).
+    
+    Args:
+        emulator: Emulator instance for taking screenshots
+        card_index: Index of card in hand (0-3)
+        detector: Optional HybridDetector instance for model-based detection. 
+                  If None, uses global detector if available.
+        logger: Optional logger for logging detection method used
+    
+    Returns:
+        str: Identified card name
+    """
+    # Use global detector if none provided
+    if detector is None:
+        detector = get_card_detector()
+    
+    # If hybrid detector is available, try model-based detection first
+    if detector and detector.model and detector.model.is_available():
+        try:
+            # Get the region of interest for the specific card
+            topleft = toplefts[card_index]
+            x1, y1 = topleft[0], topleft[1]
+            x2, y2 = x1 + TOTAL_WIDTH, y1 + TOTAL_HEIGHT
+            
+            # Get screenshot and extract card region
+            screenshot = emulator.screenshot()
+            card_image = screenshot[y1:y2, x1:x2]
+            
+            # Try model-based detection
+            predictions = detector.model.predict(card_image)
+            if predictions:
+                best_pred = max(predictions, key=lambda x: x["confidence"])
+                if best_pred["confidence"] >= detector.model_confidence_threshold:
+                    card_name = best_pred["class"]
+                    if logger:
+                        logger.log(f"Card detected via MODEL: {card_name} (confidence: {best_pred['confidence']:.2f})")
+                    return card_name
+                elif logger:
+                    logger.log(
+                        f"Model confidence too low ({best_pred['confidence']:.2f}), "
+                        f"falling back to traditional detection"
+                    )
+            elif logger:
+                logger.log("No model predictions, falling back to traditional detection")
+        except Exception as e:
+            if logger:
+                logger.log(f"Model detection error: {e}, falling back to traditional detection")
+    
+    # Fall back to traditional color-based detection
     color_chosen_card = get_all_pixel_data(emulator, card_index)
-    return find_closest_card(color_chosen_card)
+    card_name = find_closest_card(color_chosen_card)
+    if logger and detector and detector.model and detector.model.is_available():
+        logger.log(f"Card detected via TRADITIONAL CV: {card_name}")
+    return card_name
 
 
 # Create the reverse lookup dictionary
@@ -6243,10 +6345,10 @@ def get_card_group(card_id) -> str:
     return CARD_TO_GROUP.get(card_id, "No group")
 
 
-def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float = 0):
+def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float = 0, detector=None):
     # get the ID of this card(ram_rider, zap, etc)
     id_cards_start_time = time.time()
-    identity = identify_hand_cards(emulator, card_index)
+    identity = identify_hand_cards(emulator, card_index, detector=detector, logger=logger)
     time_taken = str(time.time() - id_cards_start_time)[:3]
     logger.change_status(f"Identified card as {identity} ({time_taken}s)")
 

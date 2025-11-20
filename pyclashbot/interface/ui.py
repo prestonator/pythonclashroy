@@ -832,6 +832,25 @@ class PyClashBotUI(ttk.Window):
         self._register_config_widget(UIField.MODEL_CONFIDENCE_THRESHOLD.value, confidence_spin)
         ToolTip(confidence_spin, "Minimum confidence (0.0-1.0) to use model predictions")
 
+        # Test Connection button and status
+        test_frame = ttk.Frame(model_frame)
+        test_frame.pack(fill="x", pady=(8, 0))
+        self.test_model_btn = ttk.Button(
+            test_frame,
+            text="Test Connection",
+            command=self._on_test_model_connection,
+            bootstyle="info-outline",
+        )
+        self.test_model_btn.pack(side=LEFT, padx=(0, 8))
+        self._register_config_widget("test_model_button", self.test_model_btn)
+        
+        self.model_status_label = ttk.Label(
+            test_frame,
+            text="",
+            font=("TkDefaultFont", 9),
+        )
+        self.model_status_label.pack(side=LEFT)
+
         # Info label
         info_label = ttk.Label(
             model_frame,
@@ -977,6 +996,7 @@ class PyClashBotUI(ttk.Window):
             UIField.ROBOFLOW_API_KEY.value,
             UIField.ROBOFLOW_MODEL_ID.value,
             UIField.MODEL_CONFIDENCE_THRESHOLD.value,
+            "test_model_button",
         ]:
             widget = self._config_widgets.get(key)
             if widget:
@@ -990,7 +1010,57 @@ class PyClashBotUI(ttk.Window):
                 except tk.TclError:
                     continue
 
+        # Clear status label when disabled
+        if not enabled and hasattr(self, "model_status_label"):
+            self.model_status_label.configure(text="")
+
         self._notify_config_change()
+
+    def _on_test_model_connection(self) -> None:
+        """Test connection to Roboflow model."""
+        api_key = self.roboflow_api_key_var.get()
+        model_id = self.roboflow_model_id_var.get()
+
+        if not api_key or not model_id:
+            self.model_status_label.configure(text="❌ Please enter API key and Model ID", foreground="red")
+            return
+
+        self.model_status_label.configure(text="⏳ Testing connection...", foreground="gray")
+        self.test_model_btn.configure(state=tk.DISABLED)
+        self.update_idletasks()
+
+        try:
+            from pyclashbot.detection.roboflow_model import RoboflowModel
+
+            # Create a test model instance
+            test_model = RoboflowModel(api_key=api_key, model_id=model_id)
+
+            if not test_model.is_available():
+                self.model_status_label.configure(
+                    text="❌ Connection failed - check API key/model ID", foreground="red"
+                )
+                return
+
+            # Try a simple test inference with a dummy image
+            import numpy as np
+
+            test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+            result = test_model.predict(test_image)
+
+            # Connection successful (even if no predictions, it means API works)
+            self.model_status_label.configure(text="✓ Connection successful!", foreground="green")
+
+        except ImportError:
+            self.model_status_label.configure(
+                text="❌ inference-sdk not installed. Run: pip install inference-sdk", foreground="red"
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if len(error_msg) > 50:
+                error_msg = error_msg[:50] + "..."
+            self.model_status_label.configure(text=f"❌ Error: {error_msg}", foreground="red")
+        finally:
+            self.test_model_btn.configure(state=tk.NORMAL)
 
     @staticmethod
     def _safe_int(value: object, fallback: int = 0) -> int:
