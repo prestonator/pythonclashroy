@@ -1,0 +1,11 @@
+cert
+node_modules
+.venv
+build
+dist
+__version__
+__pycache__
+recordings
+.claude/
+.claude/settings.local.json
+pyclashbot.egg-info/
