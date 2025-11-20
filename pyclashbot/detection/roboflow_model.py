@@ -89,7 +89,7 @@ class RoboflowModel(DetectionModel):
 
             # Get confidence threshold from kwargs or use default
             confidence_threshold = kwargs.get("confidence", self.confidence)
-            
+
             config = InferenceConfiguration(
                 confidence_threshold=confidence_threshold,
             )

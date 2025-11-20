@@ -10,23 +10,15 @@ from ttkbootstrap.constants import BOTH, LEFT, READONLY, YES, X
 from ttkbootstrap.tooltip import ToolTip
 
 from pyclashbot.interface.config import (
-    BLUESTACKS_SETTINGS,
     JOBS,
     ComboConfig,
 )
 from pyclashbot.interface.enums import (
-    BATTLE_STAT_FIELDS,
-    BATTLE_STAT_LABELS,
-    BOT_STAT_FIELDS,
-    BOT_STAT_LABELS,
-    COLLECTION_STAT_FIELDS,
-    COLLECTION_STAT_LABELS,
     BotStatField,
     DerivedStatField,
     StatField,
     UIField,
 )
-from pyclashbot.interface.widgets import DualRingGauge
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -216,7 +208,7 @@ class PyClashBotUI(ttk.Window):
 
     def set_model_connection_status(self, connected: bool, model_type: str = "", in_use: bool = False) -> None:
         """Update the model connection status display in the GUI.
-        
+
         Args:
             connected: Whether the model is connected and available
             model_type: Type of model (e.g., 'roboflow')
@@ -224,7 +216,7 @@ class PyClashBotUI(ttk.Window):
         """
         if not hasattr(self, 'model_connection_status_label'):
             return
-            
+
         if connected and in_use:
             status_text = f"🟢 {model_type.capitalize()} model connected and active"
             self.model_connection_status_label.configure(text=status_text, foreground="green")
