@@ -118,6 +118,28 @@ EMULATOR_CHOICE = [
     RadioConfig(UIField.BLUESTACKS_EMULATOR_TOGGLE, "BlueStacks 5", "emulator_type_radio", default=True),
 ]
 
+# Strategy Configuration
+STRATEGY_SETTINGS = [
+    ComboConfig(
+        key=UIField.STRATEGY_ELIXIR_MODE,
+        label="Elixir Management",
+        values=["Conservative", "Balanced", "Aggressive", "Adaptive"],
+        default="Adaptive",
+    ),
+    ComboConfig(
+        key=UIField.STRATEGY_PUSH_MODE,
+        label="Push Strategy",
+        values=["Single Lane", "Dual Lane", "Counter Push", "Adaptive"],
+        default="Adaptive",
+    ),
+    ComboConfig(
+        key=UIField.STRATEGY_AGGRESSION_LEVEL,
+        label="Aggression Level",
+        values=["Defensive", "Moderate", "Aggressive", "Very Aggressive"],
+        default="Moderate",
+    ),
+]
+
 # All user configuration keys (auto-generated from configs)
 USER_CONFIG_KEYS = (
     [job.key.value for job in JOBS]
@@ -134,6 +156,11 @@ USER_CONFIG_KEYS = (
         UIField.ROBOFLOW_API_KEY.value,
         UIField.ROBOFLOW_MODEL_ID.value,
         UIField.MODEL_CONFIDENCE_THRESHOLD.value,
+    ]
+    + [  # Battle Strategy settings
+        UIField.STRATEGY_ELIXIR_MODE.value,
+        UIField.STRATEGY_PUSH_MODE.value,
+        UIField.STRATEGY_AGGRESSION_LEVEL.value,
     ]
 )
 

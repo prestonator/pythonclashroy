@@ -427,6 +427,14 @@ def state_tree(
         random_plays_flag = job_list.get(UIField.RANDOM_PLAYS_USER_TOGGLE, False)
 
         recording_flag = job_list.get(UIField.RECORD_FIGHTS_TOGGLE, False)
+        
+        # Get strategy configuration
+        strategy_config = {
+            "elixir_mode": job_list.get(UIField.STRATEGY_ELIXIR_MODE, "Adaptive"),
+            "push_mode": job_list.get(UIField.STRATEGY_PUSH_MODE, "Adaptive"),
+            "aggression_level": job_list.get(UIField.STRATEGY_AGGRESSION_LEVEL, "Moderate"),
+        }
+        
         if (
             do_fight_state(
                 emulator,
@@ -435,6 +443,7 @@ def state_tree(
                 battle_mode_state.mode_used_in_1v1,
                 False,
                 recording_flag,
+                strategy_config,
             )
             is False
         ):
@@ -453,12 +462,21 @@ def state_tree(
         random_plays_flag = job_list.get(UIField.RANDOM_PLAYS_USER_TOGGLE, False)
 
         recording_flag = job_list.get(UIField.RECORD_FIGHTS_TOGGLE, False)
+        
+        # Get strategy configuration
+        strategy_config = {
+            "elixir_mode": job_list.get(UIField.STRATEGY_ELIXIR_MODE, "Adaptive"),
+            "push_mode": job_list.get(UIField.STRATEGY_PUSH_MODE, "Adaptive"),
+            "aggression_level": job_list.get(UIField.STRATEGY_AGGRESSION_LEVEL, "Moderate"),
+        }
+        
         if (
             do_2v2_fight_state(
                 emulator,
                 logger,
                 random_plays_flag,
                 recording_flag,
+                strategy_config,
             )
             is False
         ):
