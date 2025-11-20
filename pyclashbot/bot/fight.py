@@ -588,51 +588,53 @@ class BattleStrategy:
         self.elixir_amounts = [3, 4, 5, 6, 7, 8, 9]
 
         # Strategy weights for each battle phase
+        # Weights correspond to elixir amounts: [3, 4, 5, 6, 7, 8, 9]
         self.phase_strategies = {
             "early": [
                 0,
                 0,
                 0,
-                0,
+                0.1,
                 0.3,
                 0.3,
-                0.4,
-            ],  # 0-7s: Conservative, wait for more elixir
+                0.3,
+            ],  # 0-7s: Conservative start, wait for 6-9 elixir to build advantage
             "single": [
                 0.05,
                 0.05,
-                0.1,
                 0.15,
-                0.15,
-                0.3,
                 0.2,
-            ],  # 7-90s: Balanced distribution
+                0.2,
+                0.25,
+                0.1,
+            ],  # 7-90s: Balanced, favor mid-range elixir (5-8) for consistent pressure
             "double": [
-                0.05,
-                0.05,
                 0.1,
                 0.15,
+                0.2,
                 0.25,
-                0.3,
+                0.15,
                 0.1,
-            ],  # 90-200s: Favor 7-8 elixir
+                0.05,
+            ],  # 90-200s: More aggressive, play faster with lower elixir amounts
             "triple": [
+                0.15,
+                0.2,
+                0.25,
+                0.2,
+                0.15,
                 0.05,
-                0.05,
-                0.1,
-                0.1,
-                0.3,
-                0.4,
                 0,
-            ],  # 200s+: Heavy favor 7-8, never 9
+            ],  # 200s+: Very aggressive, play constantly with 3-7 elixir, never wait for 9
         }
 
-        # Wait/play thresholds for each phase
+        # Wait/play thresholds (in milliseconds) for each phase
+        # Lower thresholds = more aggressive play, higher = more patient
         self.phase_thresholds = {
-            "early": (6000, 9000),
-            "single": (6000, 9000),
-            "double": (7000, 10000),
-            "triple": (8000, 11000),
+            "early": (6000, 9000),    # Patient start to assess opponent
+            "single": (5000, 8000),   # Moderate aggression during single elixir
+            "double": (3000, 6000),   # Much faster plays during double elixir
+            "triple": (2000, 4000),   # Maximum aggression during triple elixir
         }
 
     def start_battle(self):

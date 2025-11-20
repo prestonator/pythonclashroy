@@ -72,6 +72,22 @@ class WorkerThread(PausableThread):
 
     def _run_bot_loop(self, emulator, jobs):
         """Run the main bot state loop."""
+        # Initialize card detector with model configuration if provided
+        from pyclashbot.bot.card_detection import initialize_card_detector  # noqa: PLC0415
+        from pyclashbot.interface.enums import UIField  # noqa: PLC0415
+
+        model_config = {
+            'model_enabled': jobs.get(UIField.MODEL_ENABLED_TOGGLE.value, False),
+            'model_type': jobs.get(UIField.MODEL_TYPE.value, 'roboflow'),
+            'roboflow_api_key': jobs.get(UIField.ROBOFLOW_API_KEY.value),
+            'roboflow_model_id': jobs.get(UIField.ROBOFLOW_MODEL_ID.value),
+            'confidence_threshold': jobs.get(UIField.MODEL_CONFIDENCE_THRESHOLD.value, 0.7),
+        }
+
+        initialize_card_detector(model_config)
+        if model_config.get('model_enabled'):
+            self.logger.log(f"Card detector initialized with model: {model_config['model_type']}")
+
         state = "start"
         state_history = StateHistory(self.logger)
         state_order = StateOrder()
