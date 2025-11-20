@@ -843,7 +843,7 @@ class PyClashBotUI(ttk.Window):
         )
         self.test_model_btn.pack(side=LEFT, padx=(0, 8))
         self._register_config_widget("test_model_button", self.test_model_btn)
-        
+
         self.model_status_label = ttk.Label(
             test_frame,
             text="",
@@ -1030,7 +1030,7 @@ class PyClashBotUI(ttk.Window):
         self.update_idletasks()
 
         try:
-            from pyclashbot.detection.roboflow_model import RoboflowModel
+            from pyclashbot.detection.roboflow_model import RoboflowModel  # noqa: PLC0415
 
             # Create a test model instance
             test_model = RoboflowModel(api_key=api_key, model_id=model_id)
@@ -1042,10 +1042,10 @@ class PyClashBotUI(ttk.Window):
                 return
 
             # Try a simple test inference with a dummy image
-            import numpy as np
+            import numpy as np  # noqa: PLC0415
 
             test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-            result = test_model.predict(test_image)
+            test_model.predict(test_image)
 
             # Connection successful (even if no predictions, it means API works)
             self.model_status_label.configure(text="✓ Connection successful!", foreground="green")

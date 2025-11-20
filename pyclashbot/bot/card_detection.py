@@ -6232,9 +6232,9 @@ def check_for_champion_ability(a, b, c):
     return False
 
 
-def initialize_card_detector(model_config: dict = None):
+def initialize_card_detector(model_config: dict | None = None):
     """Initialize the global card detector with optional ML model.
-    
+
     Args:
         model_config: Dictionary containing:
             - model_enabled: bool, whether to enable model detection
@@ -6244,14 +6244,14 @@ def initialize_card_detector(model_config: dict = None):
             - confidence_threshold: float, minimum confidence for model predictions
     """
     global _global_detector
-    
+
     if not model_config or not model_config.get('model_enabled', False):
         _global_detector = None
         return
-    
+
     try:
-        from pyclashbot.detection.hybrid_detector import create_detector_from_config
-        
+        from pyclashbot.detection.hybrid_detector import create_detector_from_config  # noqa: PLC0415
+
         # Build configuration for hybrid detector
         detector_config = {
             'model_type': model_config.get('model_type', 'roboflow'),
@@ -6263,7 +6263,7 @@ def initialize_card_detector(model_config: dict = None):
             'use_model_first': True,
             'confidence_threshold': model_config.get('confidence_threshold', 0.7),
         }
-        
+
         _global_detector = create_detector_from_config(detector_config)
     except Exception as e:
         print(f"Warning: Failed to initialize card detector: {e}")
@@ -6272,7 +6272,7 @@ def initialize_card_detector(model_config: dict = None):
 
 def get_card_detector():
     """Get the global card detector instance.
-    
+
     Returns:
         HybridDetector or None
     """
@@ -6281,21 +6281,21 @@ def get_card_detector():
 
 def identify_hand_cards(emulator, card_index, detector=None, logger=None):
     """Identify a card in hand using hybrid detection (model + traditional fallback).
-    
+
     Args:
         emulator: Emulator instance for taking screenshots
         card_index: Index of card in hand (0-3)
-        detector: Optional HybridDetector instance for model-based detection. 
+        detector: Optional HybridDetector instance for model-based detection.
                   If None, uses global detector if available.
         logger: Optional logger for logging detection method used
-    
+
     Returns:
         str: Identified card name
     """
     # Use global detector if none provided
     if detector is None:
         detector = get_card_detector()
-    
+
     # If hybrid detector is available, try model-based detection first
     if detector and detector.model and detector.model.is_available():
         try:
@@ -6303,11 +6303,11 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None):
             topleft = toplefts[card_index]
             x1, y1 = topleft[0], topleft[1]
             x2, y2 = x1 + TOTAL_WIDTH, y1 + TOTAL_HEIGHT
-            
+
             # Get screenshot and extract card region
             screenshot = emulator.screenshot()
             card_image = screenshot[y1:y2, x1:x2]
-            
+
             # Try model-based detection
             predictions = detector.model.predict(card_image)
             if predictions:
@@ -6327,7 +6327,7 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None):
         except Exception as e:
             if logger:
                 logger.log(f"Model detection error: {e}, falling back to traditional detection")
-    
+
     # Fall back to traditional color-based detection
     color_chosen_card = get_all_pixel_data(emulator, card_index)
     card_name = find_closest_card(color_chosen_card)
