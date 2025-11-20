@@ -45,12 +45,21 @@ class RoboflowModel(DetectionModel):
         # Initialize the inference client if credentials are provided
         if self.api_key and self.model_id:
             try:
-                from inference_sdk import InferenceHTTPClient  # noqa: PLC0415
+                from inference_sdk import InferenceConfiguration, InferenceHTTPClient  # noqa: PLC0415
+
+                # Create configuration with confidence threshold
+                config = InferenceConfiguration(
+                    confidence_threshold=self.confidence
+                )
 
                 self.inference_client = InferenceHTTPClient(
                     api_url="https://detect.roboflow.com",
                     api_key=self.api_key,
                 )
+
+                # Configure the client with the confidence threshold
+                self.inference_client.configure(config)
+
                 self._available = True
             except ImportError:
                 print(
@@ -65,7 +74,7 @@ class RoboflowModel(DetectionModel):
 
         Args:
             image: Input image as numpy array (RGB format)
-            **kwargs: Additional inference parameters (e.g., confidence, overlap)
+            **kwargs: Additional inference parameters (not used - configuration is set during initialization)
 
         Returns:
             list[dict]: List of detection results
@@ -81,12 +90,10 @@ class RoboflowModel(DetectionModel):
             else:
                 return []
 
-            # Run inference
+            # Run inference (confidence is already configured in the client)
             result = self.inference_client.infer(
                 image_data,
                 model_id=self.model_id,
-                confidence=kwargs.get("confidence", self.confidence),
-                **kwargs,
             )
 
             # Convert Roboflow result format to our standard format

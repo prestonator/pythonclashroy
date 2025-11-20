@@ -6265,13 +6265,13 @@ def initialize_card_detector(model_config: dict | None = None):
         }
 
         _global_detector = create_detector_from_config(detector_config)
-        
+
         # Print status to console for debugging
         if _global_detector and _global_detector.model and _global_detector.model.is_available():
             print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
         else:
-            print(f"⚠ Card detector created but model not available")
-            
+            print("⚠ Card detector created but model not available")
+
     except Exception as e:
         print(f"Warning: Failed to initialize card detector: {e}")
         _global_detector = None
