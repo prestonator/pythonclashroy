@@ -29,7 +29,12 @@ from pyclashbot.detection.image_rec import (
 )
 from pyclashbot.utils.logger import Logger
 
+# Button coordinates for battle navigation
 CLOSE_BATTLE_LOG_BUTTON: tuple[Literal[365], Literal[72]] = (365, 72)
+START_BATTLE_BUTTON = (203, 487)
+QUICKMATCH_BUTTON_2V2 = (280, 350)
+CLOSE_THIS_CHALLENGE_PAGE_BUTTON = (27, 22)
+
 # coords of the cards in the hand
 HAND_CARDS_COORDS = [
     (142, 561),
@@ -37,7 +42,6 @@ HAND_CARDS_COORDS = [
     (272, 561),
     (341, 563),
 ]
-CLOSE_THIS_CHALLENGE_PAGE_BUTTON = (27, 22)
 
 QUICKMATCH_BUTTON_COORD = (
     274,
@@ -172,16 +176,15 @@ def start_fight(emulator, logger, mode) -> bool:
 
     # For all modes (1v1 and 2v2), use the same start button
     # Mode is already set by select_mode() in states.py, just click start button
-    emulator.click(203, 487)
-    logger.log("Clicked Start button at (203, 487)")
+    emulator.click(START_BATTLE_BUTTON[0], START_BATTLE_BUTTON[1])
+    logger.log(f"Clicked Start button at {START_BATTLE_BUTTON}")
 
     # if its 2v2 mode, we gotta click that second popup
     if mode == "Classic 2v2":
         logger.change_status("Its 2v2 mode so we gotta click the quickmatch popup option!")
         time.sleep(3)
-        quick_match_button_coord = [280, 350]
-        emulator.click(quick_match_button_coord[0], quick_match_button_coord[1])
-        logger.log(f"Clicked Quickmatch button at {quick_match_button_coord}")
+        emulator.click(QUICKMATCH_BUTTON_2V2[0], QUICKMATCH_BUTTON_2V2[1])
+        logger.log(f"Clicked Quickmatch button at {QUICKMATCH_BUTTON_2V2}")
 
     return True
 
