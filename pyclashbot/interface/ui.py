@@ -658,7 +658,7 @@ class PyClashBotUI(ttk.Window):
             push_frame,
             text="• Single Lane: Focus attacks on one lane\n"
                  "• Dual Lane: Alternate between both lanes\n"
-                 "• Counter Push: Reactive pushes after defense\n"
+                 "• Counter Push: Conservative lane switches (enhanced with AI model)\n"
                  "• Adaptive: Smart lane selection based on situation",
             justify=LEFT,
             font=("TkDefaultFont", 9),

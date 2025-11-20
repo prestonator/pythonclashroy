@@ -766,8 +766,16 @@ class BattleStrategy:
             return False
         elif self.push_mode == "Counter Push":
             # Opportunistic lane switching based on defense success
-            # This would need integration with opponent card detection
-            return False  # Placeholder for counter-push logic
+            # TODO: Integrate with Roboflow model for opponent card detection
+            # For now, uses adaptive logic similar to "Adaptive" mode
+            if self.cards_played_this_push >= self.push_switch_threshold + 1:
+                self.cards_played_this_push = 0
+                if random.random() > 0.7:  # 30% chance to switch (less than adaptive)
+                    self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
+                    if self.logger:
+                        self.logger.log(f"Counter-push switch to {self.current_push_lane} lane")
+                    return True
+            return False
         else:  # Adaptive
             # Adaptively switch lanes based on situation
             if self.cards_played_this_push >= self.push_switch_threshold + 1:
@@ -813,7 +821,7 @@ def _fight_loop(
             }
     """
     create_default_bridge_iar(emulator)
-    collections.deque(maxlen=3)
+    # Note: last_three_cards deque is managed globally for card selection
     prev_cards_played = logger.get_cards_played()
 
     # Initialize battle strategy with configuration
