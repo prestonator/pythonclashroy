@@ -1,7 +1,7 @@
 import time
 import traceback
 
-from pyclashbot.bot.states import StateHistory, StateOrder, state_tree
+from pyclashbot.bot.states import BattleModeState, StateHistory, StateOrder, state_tree
 from pyclashbot.emulators.adb import AdbController
 from pyclashbot.emulators.bluestacks import BlueStacksEmulatorController
 from pyclashbot.emulators.google_play import GooglePlayEmulatorController
@@ -75,12 +75,13 @@ class WorkerThread(PausableThread):
         state = "start"
         state_history = StateHistory(self.logger)
         state_order = StateOrder()
+        battle_mode_state = BattleModeState()
         consecutive_restarts = 0
         max_consecutive_restarts = 5
 
         while not self.shutdown_flag.is_set():
             try:
-                new_state = state_tree(emulator, self.logger, state, jobs, state_history, state_order)
+                new_state = state_tree(emulator, self.logger, state, jobs, state_history, state_order, battle_mode_state)
 
                 # Check for restart loops
                 if new_state == "restart":
