@@ -255,6 +255,26 @@ class PyClashBotUI(ttk.Window):
     def set_status(self, text: str) -> None:
         self._status_text = text
 
+    def set_model_connection_status(self, connected: bool, model_type: str = "", in_use: bool = False) -> None:
+        """Update the model connection status display in the GUI.
+        
+        Args:
+            connected: Whether the model is connected and available
+            model_type: Type of model (e.g., 'roboflow')
+            in_use: Whether the model is actively being used
+        """
+        if not hasattr(self, 'model_connection_status_label'):
+            return
+            
+        if connected and in_use:
+            status_text = f"🟢 {model_type.capitalize()} model connected and active"
+            self.model_connection_status_label.configure(text=status_text, foreground="green")
+        elif connected:
+            status_text = f"🟡 {model_type.capitalize()} model connected (not in use)"
+            self.model_connection_status_label.configure(text=status_text, foreground="orange")
+        else:
+            self.model_connection_status_label.configure(text="", foreground="")
+
     def update_stats(self, stats: dict[str, object] | None) -> None:
         if not stats:
             return
@@ -304,16 +324,19 @@ class PyClashBotUI(ttk.Window):
         self.emulator_tab = ttk.Frame(self.notebook)
         self.stats_tab = ttk.Frame(self.notebook)
         self.misc_tab = ttk.Frame(self.notebook)
+        self.help_tab = ttk.Frame(self.notebook)
 
         self.notebook.add(self.jobs_tab, text="Jobs")
         self.notebook.add(self.emulator_tab, text="Emulator")
         self.notebook.add(self.stats_tab, text="Stats")
         self.notebook.add(self.misc_tab, text="Misc")
+        self.notebook.add(self.help_tab, text="Help")
 
         self._create_jobs_tab()
         self._create_emulator_tab()
         self._create_stats_tab()
         self._create_misc_tab()
+        self._create_help_tab()
 
     def _build_bottom_row(self) -> None:
         bottom = ttk.Frame(self)
@@ -861,12 +884,107 @@ class PyClashBotUI(ttk.Window):
         )
         info_label.pack(anchor="w", pady=(8, 0))
 
+        # Model connection status (displayed when model is active)
+        self.model_connection_status_label = ttk.Label(
+            model_frame,
+            text="",
+            font=("TkDefaultFont", 9, "bold"),
+        )
+        self.model_connection_status_label.pack(anchor="w", pady=(8, 0))
+
         # Initialize model settings as disabled
         self._on_model_enabled_changed()
 
         ttk.Separator(self.misc_tab, orient="horizontal").pack(fill="x", padx=10, pady=(6, 0))
         display_frame = ttk.Labelframe(self.misc_tab, text="Display Settings", padding=10)
         display_frame.pack(fill="x", padx=10, pady=10)
+
+    def _create_help_tab(self) -> None:
+        """Create the Help tab with information about model types and usage."""
+        container = ttk.Frame(self.help_tab, padding=10)
+        container.pack(fill=BOTH, expand=YES)
+
+        # Title
+        title_label = ttk.Label(
+            container,
+            text="AI/ML Model Help",
+            font=("TkDefaultFont", 14, "bold"),
+        )
+        title_label.pack(anchor="w", pady=(0, 10))
+
+        # Introduction
+        intro_frame = ttk.Labelframe(container, text="Overview", padding=10)
+        intro_frame.pack(fill="x", pady=(0, 10))
+        intro_text = (
+            "This application supports AI/ML models to enhance card detection accuracy. "
+            "Currently, Roboflow integration is supported with more providers coming soon."
+        )
+        intro_label = ttk.Label(intro_frame, text=intro_text, wraplength=450, justify=LEFT)
+        intro_label.pack(anchor="w")
+
+        # Model Types
+        types_frame = ttk.Labelframe(container, text="Recommended Model Types", padding=10)
+        types_frame.pack(fill="x", pady=(0, 10))
+
+        # Object Detection
+        od_title = ttk.Label(types_frame, text="✓ Object Detection (Recommended)", font=("TkDefaultFont", 10, "bold"))
+        od_title.pack(anchor="w", pady=(0, 2))
+        od_text = (
+            "Best for detecting cards in hand and on the battlefield. "
+            "Returns bounding boxes and class labels for each detected card."
+        )
+        od_label = ttk.Label(types_frame, text=od_text, wraplength=450, justify=LEFT)
+        od_label.pack(anchor="w", padx=(10, 0), pady=(0, 8))
+
+        # Instance Segmentation
+        is_title = ttk.Label(types_frame, text="✓ Instance Segmentation (Advanced)", font=("TkDefaultFont", 10, "bold"))
+        is_title.pack(anchor="w", pady=(0, 2))
+        is_text = (
+            "Similar to object detection but provides pixel-level masks. "
+            "Useful for precise card boundaries but may be slower."
+        )
+        is_label = ttk.Label(types_frame, text=is_text, wraplength=450, justify=LEFT)
+        is_label.pack(anchor="w", padx=(10, 0), pady=(0, 8))
+
+        # Classification
+        class_title = ttk.Label(types_frame, text="✗ Classification (Not Recommended)", font=("TkDefaultFont", 10, "bold"))
+        class_title.pack(anchor="w", pady=(0, 2))
+        class_text = (
+            "Only provides a class label for the entire image without location information. "
+            "Not suitable for this application as we need to detect multiple cards with positions."
+        )
+        class_label = ttk.Label(types_frame, text=class_text, wraplength=450, justify=LEFT)
+        class_label.pack(anchor="w", padx=(10, 0), pady=(0, 8))
+
+        # Setup Guide
+        setup_frame = ttk.Labelframe(container, text="Quick Setup Guide", padding=10)
+        setup_frame.pack(fill="x", pady=(0, 10))
+
+        setup_steps = [
+            "1. Install inference-sdk: pip install inference-sdk",
+            "2. Sign up at roboflow.com and get your API key",
+            "3. Train or find an object detection model for Clash Royale cards",
+            "4. Enter your API key and model ID in the Misc tab",
+            "5. Click 'Test Connection' to verify your setup",
+            "6. Enable 'ML Model Detection' toggle to start using the model",
+        ]
+
+        for step in setup_steps:
+            step_label = ttk.Label(setup_frame, text=step, wraplength=450, justify=LEFT)
+            step_label.pack(anchor="w", pady=1)
+
+        # Documentation Links
+        docs_frame = ttk.Labelframe(container, text="Documentation", padding=10)
+        docs_frame.pack(fill="x", pady=(0, 10))
+
+        docs_text = (
+            "• Full documentation: pyclashbot/detection/README_MODELS.md\n"
+            "• Quick start guide: QUICKSTART_MODELS.md\n"
+            "• Roboflow Universe: universe.roboflow.com\n"
+            "• Training guide: docs.roboflow.com/quick-start"
+        )
+        docs_label = ttk.Label(docs_frame, text=docs_text, justify=LEFT)
+        docs_label.pack(anchor="w")
 
     def _register_config_widget(self, key: str, widget: tk.Widget) -> None:
         self._config_widgets[key] = widget
@@ -1023,6 +1141,7 @@ class PyClashBotUI(ttk.Window):
 
         if not api_key or not model_id:
             self.model_status_label.configure(text="❌ Please enter API key and Model ID", foreground="red")
+            self.set_model_connection_status(False)
             return
 
         self.model_status_label.configure(text="⏳ Testing connection...", foreground="gray")
@@ -1039,6 +1158,7 @@ class PyClashBotUI(ttk.Window):
                 self.model_status_label.configure(
                     text="❌ Connection failed - check API key/model ID", foreground="red"
                 )
+                self.set_model_connection_status(False)
                 return
 
             # Try a simple test inference with a dummy image
@@ -1049,16 +1169,21 @@ class PyClashBotUI(ttk.Window):
 
             # Connection successful (even if no predictions, it means API works)
             self.model_status_label.configure(text="✓ Connection successful!", foreground="green")
+            # Update persistent status
+            model_enabled = self.model_enabled_var.get()
+            self.set_model_connection_status(True, "roboflow", model_enabled)
 
         except ImportError:
             self.model_status_label.configure(
                 text="❌ inference-sdk not installed. Run: pip install inference-sdk", foreground="red"
             )
+            self.set_model_connection_status(False)
         except Exception as e:
             error_msg = str(e)
             if len(error_msg) > 50:
                 error_msg = error_msg[:50] + "..."
             self.model_status_label.configure(text=f"❌ Error: {error_msg}", foreground="red")
+            self.set_model_connection_status(False)
         finally:
             self.test_model_btn.configure(state=tk.NORMAL)
 

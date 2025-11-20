@@ -86,7 +86,19 @@ class WorkerThread(PausableThread):
 
         initialize_card_detector(model_config)
         if model_config.get('model_enabled'):
-            self.logger.log(f"Card detector initialized with model: {model_config['model_type']}")
+            model_type = model_config.get('model_type', 'unknown')
+            self.logger.log(f"✓ Roboflow connection initialized: Using {model_type} model")
+            self.logger.log(f"  Model ID: {model_config.get('roboflow_model_id', 'not specified')}")
+            self.logger.log(f"  Confidence threshold: {model_config.get('confidence_threshold', 0.7)}")
+            # Check if model is actually available
+            from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
+            detector = get_card_detector()
+            if detector and detector.model and detector.model.is_available():
+                self.logger.log(f"✓ {model_type.capitalize()} model is active and will be used in battles")
+            else:
+                self.logger.log(f"⚠ {model_type.capitalize()} model configuration found but model not available")
+        else:
+            self.logger.log("Model detection disabled - using traditional CV methods only")
 
         state = "start"
         state_history = StateHistory(self.logger)
