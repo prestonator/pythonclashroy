@@ -689,7 +689,7 @@ class BattleStrategy:
 
         # Log strategy configuration
         if self.logger:
-            self.logger.log(f"BattleStrategy initialized with:")
+            self.logger.log("BattleStrategy initialized with:")
             self.logger.log(f"  - Elixir Mode: {self.elixir_mode}")
             self.logger.log(f"  - Push Mode: {self.push_mode}")
             self.logger.log(f"  - Aggression Level: {self.aggression_level}")

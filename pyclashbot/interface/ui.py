@@ -12,6 +12,7 @@ from ttkbootstrap.tooltip import ToolTip
 from pyclashbot.interface.config import (
     BLUESTACKS_SETTINGS,
     JOBS,
+    STRATEGY_SETTINGS,
     ComboConfig,
 )
 from pyclashbot.interface.enums import (
@@ -601,8 +602,6 @@ class PyClashBotUI(ttk.Window):
 
     def _create_strategy_tab(self) -> None:
         """Create the Strategy tab with battle strategy configuration."""
-        from pyclashbot.interface.config import STRATEGY_SETTINGS
-
         container = ttk.Frame(self.strategy_tab, padding=10)
         container.pack(fill=BOTH, expand=YES)
 
@@ -611,7 +610,7 @@ class PyClashBotUI(ttk.Window):
         elixir_frame.pack(fill=X, pady=(0, 10))
 
         ttk.Label(elixir_frame, text="Strategy:").pack(anchor="w", pady=(0, 4))
-        
+
         elixir_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_ELIXIR_MODE)
         self.strategy_elixir_var = ttk.StringVar(value=str(elixir_config.default))
         self.strategy_elixir_combo = ttk.Combobox(
@@ -641,7 +640,7 @@ class PyClashBotUI(ttk.Window):
         push_frame.pack(fill=X, pady=(0, 10))
 
         ttk.Label(push_frame, text="Strategy:").pack(anchor="w", pady=(0, 4))
-        
+
         push_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_PUSH_MODE)
         self.strategy_push_var = ttk.StringVar(value=str(push_config.default))
         self.strategy_push_combo = ttk.Combobox(
@@ -671,7 +670,7 @@ class PyClashBotUI(ttk.Window):
         aggression_frame.pack(fill=X, pady=(0, 10))
 
         ttk.Label(aggression_frame, text="Level:").pack(anchor="w", pady=(0, 4))
-        
+
         aggression_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_AGGRESSION_LEVEL)
         self.strategy_aggression_var = ttk.StringVar(value=str(aggression_config.default))
         self.strategy_aggression_combo = ttk.Combobox(
@@ -699,10 +698,10 @@ class PyClashBotUI(ttk.Window):
         # Info box
         info_frame = ttk.Frame(container)
         info_frame.pack(fill=X, pady=(10, 0))
-        
+
         info_label = ttk.Label(
             info_frame,
-            text="ℹ️ These strategies control how the bot manages elixir, chooses lanes, "
+            text="Info: These strategies control how the bot manages elixir, chooses lanes, "
                  "and times card plays during battle. Settings are applied at the start of each battle.",
             wraplength=450,
             justify=LEFT,
