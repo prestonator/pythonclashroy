@@ -78,6 +78,13 @@ def make_job_dictionary(values: dict[str, Any]) -> dict[str, Any]:
 
     job_dictionary[UIField.ADB_SERIAL.value] = values.get(UIField.ADB_SERIAL.value)
 
+    # AI/ML Model settings
+    job_dictionary[UIField.MODEL_ENABLED_TOGGLE.value] = as_bool(UIField.MODEL_ENABLED_TOGGLE)
+    job_dictionary[UIField.MODEL_TYPE.value] = values.get(UIField.MODEL_TYPE.value, 'roboflow')
+    job_dictionary[UIField.ROBOFLOW_API_KEY.value] = values.get(UIField.ROBOFLOW_API_KEY.value)
+    job_dictionary[UIField.ROBOFLOW_MODEL_ID.value] = values.get(UIField.ROBOFLOW_MODEL_ID.value)
+    job_dictionary[UIField.MODEL_CONFIDENCE_THRESHOLD.value] = values.get(UIField.MODEL_CONFIDENCE_THRESHOLD.value, 0.7)
+
     return job_dictionary
 
 
