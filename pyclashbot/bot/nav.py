@@ -1,3 +1,4 @@
+import logging
 import random
 import time
 from typing import Literal
@@ -178,7 +179,7 @@ def wait_for_clash_main_menu(emulator, logger: Logger, deadspace_click=True) -> 
 
         # handle geting stuck on trophy road screen
         if check_for_trophy_reward_menu(emulator):
-            print("Handling trophy reward menu")
+            logger.log("Handling trophy reward menu")
             handle_trophy_reward_menu(emulator, logger)
             time.sleep(2)
             continue
@@ -193,7 +194,7 @@ def wait_for_clash_main_menu(emulator, logger: Logger, deadspace_click=True) -> 
 
     time.sleep(1)
     if check_if_on_clash_main_menu(emulator) is not True:
-        print("Failed to get to clash main! Saw these pixels before restarting:")
+        logger.log("Failed to get to clash main! Saw these pixels before restarting:")
         return False
 
     return True
@@ -540,7 +541,7 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
-        print(f'[!] Fatal error: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
+        logging.error(f'Fatal error: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
         return None
 
     mode2folder = {
@@ -551,9 +552,9 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
 
     look_folder = mode2folder[mode]
 
-    print(f"[DEBUG] Checking if {mode} is selected...")
-    print(f"[DEBUG] Looking in folder: {look_folder}")
-    print("[DEBUG] Subcrop: (270, 455, 350, 533)")
+    logging.debug(f"Checking if {mode} is selected...")
+    logging.debug(f"Looking in folder: {look_folder}")
+    logging.debug("Subcrop: (270, 455, 350, 533)")
 
     # find image on screen
     coord = find_image(
@@ -563,7 +564,7 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
         subcrop=(270, 455, 350, 533),
     )
 
-    print(f"[DEBUG] Found at: {coord}")
+    logging.debug(f"Found at: {coord}")
 
     return coord is not None
 
@@ -573,7 +574,7 @@ def find_fight_mode_icon(emulator, mode: str):
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
-        print(f'[!] Fatal error: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
+        logging.error(f'Fatal error: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
         return None
 
     mode2folder = {
@@ -606,24 +607,24 @@ def select_mode(emulator, mode: str):
     # Check if the mode is valid
     expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
     if type(mode) is not str:
-        print(f'[!] Warning: Mode "{mode}" is not a string. Expected a string.')
+        logging.warning(f'Warning: Mode "{mode}" is not a string. Expected a string.')
         return False
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
-        print(f'[!] Warning: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
+        logging.warning(f'Warning: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
         return False
 
     # must be on clash main
     if not check_if_on_clash_main_menu(emulator):
-        print("[!] Not on clash main menu, cannot select a fight mode")
+        logging.warning("Not on clash main menu, cannot select a fight mode")
         return False
 
     # open fight type selection menu
     game_mode_coord = [308, 485]
 
     # click select mode button
-    print("Clicking mode selection button")
+    logging.debug("Clicking mode selection button")
     emulator.click(game_mode_coord[0], game_mode_coord[1])
     time.sleep(2)
 
@@ -643,7 +644,7 @@ def select_mode(emulator, mode: str):
     while time.time() - start_time < search_timeout:
         coord = find_fight_mode_icon(emulator, mode)
         if coord is not None:
-            print(f'Located the "{mode}" button, clicking it.')
+            logging.debug(f'Located the "{mode}" button, clicking it.')
             emulator.click(*coord)
             time.sleep(3)
 

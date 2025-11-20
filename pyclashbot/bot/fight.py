@@ -455,16 +455,16 @@ def get_to_main_after_fight(emulator, logger):
 
             # if that trophy road page appears, handle it, then return True
             if check_for_trophy_reward_menu(emulator):
-                print("Found trophy reward menu")
+                logger.log("Found trophy reward menu")
                 handle_trophy_reward_menu(emulator, logger, printmode=False)
                 time.sleep(2)
 
-            print("Made it to clash main after a fight")
+            logger.log("Made it to clash main after a fight")
             return True
 
         # check for trophy reward screen
         if check_for_trophy_reward_menu(emulator):
-            print("Found trophy reward menu!\nHandling Trophy Reward Menu")
+            logger.log("Found trophy reward menu! Handling Trophy Reward Menu")
             handle_trophy_reward_menu(emulator, logger, printmode=False)
             time.sleep(3)
             continue
@@ -473,13 +473,13 @@ def get_to_main_after_fight(emulator, logger):
         if not clicked_ok_or_exit:
             button_coord = find_post_battle_button(emulator)
             if button_coord is not None:
-                print("Found post-battle button, clicking it.")
+                logger.log("Found post-battle button, clicking it.")
                 emulator.click(button_coord[0], button_coord[1])
                 clicked_ok_or_exit = True
                 continue
 
         time.sleep(1)
-        print("Clicking on deadspace to close potential pop-up windows.")
+        logger.log("Clicking on deadspace to close potential pop-up windows.")
         emulator.click(CLASH_MAIN_DEADSPACE_COORD[0], CLASH_MAIN_DEADSPACE_COORD[1])
 
     return False
@@ -514,8 +514,6 @@ def select_card_index(card_indices, last_three_cards):
 
 
 def play_a_card(emulator, logger, recording_flag: bool, battle_strategy: "BattleStrategy") -> bool:
-    print("\n")
-
     # check which cards are available
     logger.change_status("Looking at which cards are available")
     available_card_check_start_time = time.time()

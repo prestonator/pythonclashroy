@@ -20,10 +20,10 @@ class WorkerThread(PausableThread):
         """Create and return a Google Play emulator instance."""
         try:
             emulator = GooglePlayEmulatorController(logger=self.logger)
-            print("Successfully created google play emulator")
+            self.logger.log("Successfully created google play emulator")
             return emulator
         except Exception as e:
-            print(f"Failed to create Google Play emulator: {e}")
+            self.logger.error(f"Failed to create Google Play emulator: {e}")
             self.logger.change_status("Failed to start Google Play. Verify its installation!")
             return None
 
@@ -40,16 +40,16 @@ class WorkerThread(PausableThread):
         emulator_selection = jobs.get("emulator", "MEmu")
 
         if emulator_selection == "Google Play":
-            print("Creating google play emulator")
+            self.logger.log("Creating google play emulator")
             return self._create_google_play_emulator()
         elif emulator_selection in ("BlueStacks 5"):
-            print("Creating BlueStacks 5 emulator")
+            self.logger.log("Creating BlueStacks 5 emulator")
             try:
                 bs_mode = jobs.get("bluestacks_render_mode", "gl")
                 render_settings = {"graphics_renderer": bs_mode}
                 return BlueStacksEmulatorController(logger=self.logger, render_settings=render_settings)
             except Exception as e:
-                print(f"Failed to create BlueStacks 5 emulator: {e}")
+                self.logger.error(f"Failed to create BlueStacks 5 emulator: {e}")
                 self.logger.change_status("Failed to start BlueStacks 5. Verify its installation!")
                 return None
         elif emulator_selection == "MEmu":
@@ -57,17 +57,17 @@ class WorkerThread(PausableThread):
             return self._create_memu_emulator(render_mode)
 
         elif emulator_selection == "ADB Device":
-            print("Creating ADB Device controller")
+            self.logger.log("Creating ADB Device controller")
             try:
                 adb_serial = jobs.get("adb_serial", None)
                 return AdbController(logger=self.logger, device_serial=adb_serial)
             except Exception as e:
-                print(f"Failed to create ADB Device controller: {e}")
+                self.logger.error(f"Failed to create ADB Device controller: {e}")
                 self.logger.change_status("Failed to connect to ADB device. Check connection and ADB setup!")
                 return None
 
         else:
-            print(f"[!] Fatal error: Emulator {emulator_selection} is not supported!")
+            self.logger.error(f"Fatal error: Emulator {emulator_selection} is not supported!")
             return None
 
     def _run_bot_loop(self, emulator, jobs):
@@ -106,8 +106,6 @@ class WorkerThread(PausableThread):
             except Exception as e:
                 self.logger.error(f"Exception in state_tree: {e}")
                 self.logger.log(f"Current state was: {state}")
-                print(f"[ERROR] Exception in state_tree: {e}")
-                print(f"[ERROR] Current state was: {state}")
                 # Try to restart from a known state
                 state = "restart"
                 # If we keep getting exceptions, break out
@@ -122,7 +120,7 @@ class WorkerThread(PausableThread):
 
     def run(self) -> None:
         """Main worker thread execution."""
-        print("WorkerThread run()...")
+        self.logger.log("WorkerThread run()...")
         jobs = self.args
 
         emulator = self._setup_emulator(jobs)

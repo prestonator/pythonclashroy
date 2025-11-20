@@ -1,5 +1,6 @@
 """time module for timing functions and controling pacing"""
 
+import logging
 import random
 import time
 
@@ -40,7 +41,6 @@ def handle_state_failure(logger: Logger, state_name: str, function_name: str, er
 
     logger.error(full_msg)
     logger.change_status(f"Error in {state_name} - restarting")
-    print(f"[ERROR] {full_msg}")
 
     return "restart"
 
@@ -146,8 +146,7 @@ class StateHistory:
                     # handling negative time for whatever reason
                     most_recent_time = max(most_recent_time, time)
                 except Exception as e:
-                    print(f"Got an exception in StateHistory.get_time_of_last_state()\n{e}")
-                    pass
+                    logging.error(f"Got an exception in StateHistory.get_time_of_last_state()\n{e}")
 
         return int(most_recent_time)
 
@@ -155,7 +154,7 @@ class StateHistory:
         def to_wrap():
             # if the state isnt in the state time increment dictionary, return True
             if state not in self.state2time_increment:
-                print(f"The time increment for {state} isn't specified, so defaulting to True (ready)")
+                logging.debug(f"The time increment for {state} isn't specified, so defaulting to True (ready)")
                 return True
 
             # get the time of the last state
@@ -163,7 +162,7 @@ class StateHistory:
 
             # if the last time is -1, then the state has never been run before
             if last_time == -1:
-                print(f"{state} has never been run before, so it is ready")
+                logging.debug(f"{state} has never been run before, so it is ready")
                 return True
 
             # retrieve the time increment for this state
@@ -174,15 +173,15 @@ class StateHistory:
 
             # time since last state
             time_since_last_state = time.time() - last_time
-            print(f"It's been {str(time_since_last_state)[:5]}s since this state has been ran")
+            logging.debug(f"It's been {str(time_since_last_state)[:5]}s since this state has been ran")
 
             # if the time since the last state is greater than the time increment, return True
             if time_since_last_state > time_increment:
-                print(f"{state} is ready to run")
+                logging.debug(f"{state} is ready to run")
                 return True
 
             # otherwise
-            print(f"{state} is not ready to run")
+            logging.debug(f"{state} is not ready to run")
             return False
 
         # add ready states to history because they always happen after True returns
@@ -212,7 +211,7 @@ class StateOrder:
             return self.states[0]
 
         if curr_state not in self.states:
-            print(f'[!] Fatal error: state "{curr_state}" not in state order')
+            logging.error(f'Fatal error: state "{curr_state}" not in state order')
             return "No next state found!"
 
         this_index = self.states.index(curr_state)
@@ -271,7 +270,7 @@ def state_tree(
             and not job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False)
             and not job_list["upgrade_user_toggle"]
         ):
-            print("No fight jobs, or card jobs are even toggled, so skipping random deck state.")
+            logger.log("No fight jobs, or card jobs are even toggled, so skipping random deck state.")
             return state_order.next_state(state)
 
         # Get the selected deck number from job_list, default to 2 if not found
@@ -350,13 +349,13 @@ def state_tree(
             enabled_modes.append("Trophy Road")
 
         if not enabled_modes:
-            print("No fight modes are enabled. Skipping this state")
+            logger.log("No fight modes are enabled. Skipping this state")
             return state_order.next_state(state)
 
         # if more than one mode is selected, just cycle through them
         if len(enabled_modes) > 1:
             selected_mode = get_next_fight_mode(job_list)
-            print(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
+            logger.log(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
             mode_used_in_1v1 = selected_mode
             if select_mode(emulator, selected_mode) is False:
                 return handle_state_failure(
@@ -366,21 +365,21 @@ def state_tree(
             # if only one mode is selected, check if it's already selected
             selected_mode = enabled_modes[0]
             mode_used_in_1v1 = selected_mode
-            print(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
+            logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
             if not check_if_battle_mode_is_selected(emulator, selected_mode):
-                print(f"{selected_mode} is not selected. Selecting it now.")
+                logger.log(f"{selected_mode} is not selected. Selecting it now.")
                 if select_mode(emulator, selected_mode) is False:
                     return handle_state_failure(
                         logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
                     )
             else:
-                print(f"{selected_mode} is already selected.")
+                logger.log(f"{selected_mode} is already selected.")
 
         return state_order.next_state(state)
 
     if state == "start_fight":
         if mode_used_in_1v1 is None:
-            print("No battle mode selected. Skipping this state")
+            logger.log("No battle mode selected. Skipping this state")
             return state_order.next_state(state)
 
         # Start fight using the selected mode directly
@@ -393,7 +392,7 @@ def state_tree(
     if state == "1v1_fight":
         # Check if the current mode is a 1v1 type (Classic 1v1 or Trophy Road)
         if mode_used_in_1v1 not in ["Classic 1v1", "Trophy Road"]:
-            print(f"Current mode '{mode_used_in_1v1}' is not a 1v1 type. Skipping this state")
+            logger.log(f"Current mode '{mode_used_in_1v1}' is not a 1v1 type. Skipping this state")
             return state_order.next_state(state)
 
         random_plays_flag = job_list.get(UIField.RANDOM_PLAYS_USER_TOGGLE, False)
@@ -419,7 +418,7 @@ def state_tree(
     if state == "2v2_fight":
         # Check if the current mode is a 2v2 type (Classic 2v2)
         if mode_used_in_1v1 != "Classic 2v2":
-            print(f"Current mode '{mode_used_in_1v1}' is not a 2v2 type. Skipping this state")
+            logger.log(f"Current mode '{mode_used_in_1v1}' is not a 2v2 type. Skipping this state")
             return state_order.next_state(state)
 
         random_plays_flag = job_list.get(UIField.RANDOM_PLAYS_USER_TOGGLE, False)
