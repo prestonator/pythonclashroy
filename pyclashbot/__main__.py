@@ -175,8 +175,6 @@ def open_recordings_folder() -> None:
         os.startfile(folder_path)
     except AttributeError:
         # Non-Windows fallback
-        import subprocess
-
         subprocess.Popen(["xdg-open", folder_path])
 
 
@@ -186,8 +184,6 @@ def open_logs_folder() -> None:
     try:
         os.startfile(folder_path)
     except AttributeError:
-        import subprocess
-
         subprocess.Popen(["xdg-open", folder_path])
 
 

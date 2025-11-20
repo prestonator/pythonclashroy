@@ -21,7 +21,7 @@ from pyclashbot.bot.nav import (
     wait_for_battle_start,
     wait_for_clash_main_menu,
 )
-from pyclashbot.bot.recorder import save_image, save_play, save_win_loss
+from pyclashbot.bot.recorder import save_play, save_win_loss
 from pyclashbot.detection.image_rec import (
     check_line_for_color,
     find_image,
@@ -29,7 +29,12 @@ from pyclashbot.detection.image_rec import (
 )
 from pyclashbot.utils.logger import Logger
 
+# Button coordinates for battle navigation
 CLOSE_BATTLE_LOG_BUTTON: tuple[Literal[365], Literal[72]] = (365, 72)
+START_BATTLE_BUTTON = (203, 487)
+QUICKMATCH_BUTTON_2V2 = (280, 350)
+CLOSE_THIS_CHALLENGE_PAGE_BUTTON = (27, 22)
+
 # coords of the cards in the hand
 HAND_CARDS_COORDS = [
     (142, 561),
@@ -37,7 +42,6 @@ HAND_CARDS_COORDS = [
     (272, 561),
     (341, 563),
 ]
-CLOSE_THIS_CHALLENGE_PAGE_BUTTON = (27, 22)
 
 QUICKMATCH_BUTTON_COORD = (
     274,
@@ -172,21 +176,20 @@ def start_fight(emulator, logger, mode) -> bool:
 
     # For all modes (1v1 and 2v2), use the same start button
     # Mode is already set by select_mode() in states.py, just click start button
-    emulator.click(203, 487)
-    logger.log("Clicked Start button at (203, 487)")
+    emulator.click(START_BATTLE_BUTTON[0], START_BATTLE_BUTTON[1])
+    logger.log(f"Clicked Start button at {START_BATTLE_BUTTON}")
 
     # if its 2v2 mode, we gotta click that second popup
     if mode == "Classic 2v2":
         logger.change_status("Its 2v2 mode so we gotta click the quickmatch popup option!")
         time.sleep(3)
-        quick_match_button_coord = [280, 350]
-        emulator.click(quick_match_button_coord[0], quick_match_button_coord[1])
-        logger.log(f"Clicked Quickmatch button at {quick_match_button_coord}")
+        emulator.click(QUICKMATCH_BUTTON_2V2[0], QUICKMATCH_BUTTON_2V2[1])
+        logger.log(f"Clicked Quickmatch button at {QUICKMATCH_BUTTON_2V2}")
 
     return True
 
 
-def send_emote(emulator, logger: Logger):
+def send_emote(emulator, logger: Logger) -> None:
     """Method to do an emote in a fight"""
     logger.change_status("Hitting an emote")
 
@@ -198,7 +201,7 @@ def send_emote(emulator, logger: Logger):
     emulator.click(emote_coord[0], emote_coord[1])
 
 
-def mag_dump(emulator, logger):
+def mag_dump(emulator, logger: Logger) -> None:
     card_coords = [
         (137, 559),
         (206, 559),
@@ -265,7 +268,7 @@ def wait_for_elixer(
     return True
 
 
-def count_elixer(emulator, elixer_count) -> bool:
+def count_elixer(emulator, elixer_count: int) -> bool:
     """Method to check for 4 elixer during a battle"""
     iar = emulator.screenshot()
 
@@ -281,9 +284,9 @@ def count_elixer(emulator, elixer_count) -> bool:
 def end_fight_state(
     emulator,
     logger: Logger,
-    recording_flag,
-    disable_win_tracker_toggle=True,
-):
+    recording_flag: bool,
+    disable_win_tracker_toggle: bool = True,
+) -> bool:
     """Method to handle the time after a fight and before the next state"""
     # count the crown score on this end-battle screen
 
@@ -391,7 +394,7 @@ def check_pixels_for_win_in_battle_log(emulator) -> bool:
     return True
 
 
-def find_post_battle_button(emulator):
+def find_post_battle_button(emulator) -> tuple[int, int] | None:
     """Find and return coordinates for post-battle exit/OK button.
 
     Tries multiple detection methods in order:
@@ -440,7 +443,7 @@ def find_post_battle_button(emulator):
     return None
 
 
-def get_to_main_after_fight(emulator, logger):
+def get_to_main_after_fight(emulator, logger: Logger) -> bool:
     timeout = 120  # s
     start_time = time.time()
     clicked_ok_or_exit = False
@@ -455,16 +458,16 @@ def get_to_main_after_fight(emulator, logger):
 
             # if that trophy road page appears, handle it, then return True
             if check_for_trophy_reward_menu(emulator):
-                print("Found trophy reward menu")
+                logger.log("Found trophy reward menu")
                 handle_trophy_reward_menu(emulator, logger, printmode=False)
                 time.sleep(2)
 
-            print("Made it to clash main after a fight")
+            logger.log("Made it to clash main after a fight")
             return True
 
         # check for trophy reward screen
         if check_for_trophy_reward_menu(emulator):
-            print("Found trophy reward menu!\nHandling Trophy Reward Menu")
+            logger.log("Found trophy reward menu! Handling Trophy Reward Menu")
             handle_trophy_reward_menu(emulator, logger, printmode=False)
             time.sleep(3)
             continue
@@ -473,13 +476,13 @@ def get_to_main_after_fight(emulator, logger):
         if not clicked_ok_or_exit:
             button_coord = find_post_battle_button(emulator)
             if button_coord is not None:
-                print("Found post-battle button, clicking it.")
+                logger.log("Found post-battle button, clicking it.")
                 emulator.click(button_coord[0], button_coord[1])
                 clicked_ok_or_exit = True
                 continue
 
         time.sleep(1)
-        print("Clicking on deadspace to close potential pop-up windows.")
+        logger.log("Clicking on deadspace to close potential pop-up windows.")
         emulator.click(CLASH_MAIN_DEADSPACE_COORD[0], CLASH_MAIN_DEADSPACE_COORD[1])
 
     return False
@@ -491,7 +494,7 @@ def get_to_main_after_fight(emulator, logger):
 last_three_cards = collections.deque(maxlen=3)
 
 
-def select_card_index(card_indices, last_three_cards):
+def select_card_index(card_indices: list[int], last_three_cards: collections.deque) -> int:
     if not card_indices:
         raise ValueError("card_indices cannot be empty")
 
@@ -514,8 +517,6 @@ def select_card_index(card_indices, last_three_cards):
 
 
 def play_a_card(emulator, logger, recording_flag: bool, battle_strategy: "BattleStrategy") -> bool:
-    print("\n")
-
     # check which cards are available
     logger.change_status("Looking at which cards are available")
     available_card_check_start_time = time.time()
@@ -720,7 +721,7 @@ def _fight_loop(emulator, logger: Logger, recording_flag: bool) -> bool:
     return True
 
 
-def _random_fight_loop(emulator, logger) -> bool:
+def _random_fight_loop(emulator, logger: Logger) -> bool:
     """Method for handling dynamically timed fight with random plays"""
     logger.change_status(status="Starting battle with random plays")
     fight_timeout = 5 * 60  # 5 minutes
