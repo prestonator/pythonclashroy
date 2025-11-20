@@ -78,6 +78,13 @@ def make_job_dictionary(values: dict[str, Any]) -> dict[str, Any]:
 
     job_dictionary[UIField.ADB_SERIAL.value] = values.get(UIField.ADB_SERIAL.value)
 
+    # AI/ML Model settings
+    job_dictionary[UIField.MODEL_ENABLED_TOGGLE.value] = as_bool(UIField.MODEL_ENABLED_TOGGLE)
+    job_dictionary[UIField.MODEL_TYPE.value] = values.get(UIField.MODEL_TYPE.value, 'roboflow')
+    job_dictionary[UIField.ROBOFLOW_API_KEY.value] = values.get(UIField.ROBOFLOW_API_KEY.value)
+    job_dictionary[UIField.ROBOFLOW_MODEL_ID.value] = values.get(UIField.ROBOFLOW_MODEL_ID.value)
+    job_dictionary[UIField.MODEL_CONFIDENCE_THRESHOLD.value] = values.get(UIField.MODEL_CONFIDENCE_THRESHOLD.value, 0.7)
+
     return job_dictionary
 
 
@@ -271,6 +278,25 @@ class BotApplication:
             return
         self.thread, self.logger = handle_thread_finished(self.ui, self.thread, self.logger)
         update_layout(self.ui, self.logger)
+        
+        # Update model connection status
+        if self.thread and self.thread.is_alive():
+            values = self.current_values
+            if values.get(UIField.MODEL_ENABLED_TOGGLE.value):
+                model_type = values.get(UIField.MODEL_TYPE.value, 'roboflow')
+                # Check if detector is available
+                try:
+                    from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
+                    detector = get_card_detector()
+                    if detector and detector.model and detector.model.is_available():
+                        self.ui.set_model_connection_status(True, model_type, True)
+                    else:
+                        self.ui.set_model_connection_status(False)
+                except Exception:
+                    self.ui.set_model_connection_status(False)
+            else:
+                self.ui.set_model_connection_status(False)
+        
         if hasattr(self.logger, "action_needed") and self.logger.action_needed:
             action_text = getattr(self.logger, "action_text", "Continue")
             self.ui.show_action_button(action_text, self._dispatch_action)
