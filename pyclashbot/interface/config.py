@@ -107,11 +107,6 @@ JOBS = [
 ]
 
 # Emulator Settings Configuration
-MEMU_SETTINGS = [
-    RadioConfig(UIField.OPENGL_TOGGLE, "OpenGL", "render_mode_radio"),
-    RadioConfig(UIField.DIRECTX_TOGGLE, "DirectX", "render_mode_radio", default=True),
-]
-
 # BlueStacks specific renderer settings
 BLUESTACKS_SETTINGS = [
     RadioConfig(UIField.BS_RENDERER_GL, "OpenGL", "bs_render_mode_radio"),
@@ -120,27 +115,13 @@ BLUESTACKS_SETTINGS = [
 ]
 
 EMULATOR_CHOICE = [
-    RadioConfig(UIField.MEMU_EMULATOR_TOGGLE, "Memu", "emulator_type_radio", default=True),
-    RadioConfig(UIField.GOOGLE_PLAY_EMULATOR_TOGGLE, "Google Play", "emulator_type_radio"),
-    RadioConfig(UIField.BLUESTACKS_EMULATOR_TOGGLE, "BlueStacks 5", "emulator_type_radio"),
-]
-
-# Google Play Settings Configuration
-GOOGLE_PLAY_SETTINGS = [
-    ComboConfig(UIField.GP_ANGLE, "angle", ["true", "false"]),
-    ComboConfig(UIField.GP_VULKAN, "vulkan", ["true", "false"]),
-    ComboConfig(UIField.GP_GLES, "gles", ["true", "false"]),
-    ComboConfig(UIField.GP_SURFACELESS, "surfaceless", ["true", "false"]),
-    ComboConfig(UIField.GP_EGL, "egl", ["true", "false"]),
-    ComboConfig(UIField.GP_BACKEND, "backend", ["gfxstream", "angle", "swiftshader"]),
-    ComboConfig(UIField.GP_WSI, "wsi", ["vk", "glx"]),
+    RadioConfig(UIField.BLUESTACKS_EMULATOR_TOGGLE, "BlueStacks 5", "emulator_type_radio", default=True),
 ]
 
 # All user configuration keys (auto-generated from configs)
 USER_CONFIG_KEYS = (
     [job.key.value for job in JOBS]
-    + [radio.key.value for radio in MEMU_SETTINGS + BLUESTACKS_SETTINGS + EMULATOR_CHOICE]
-    + [combo.key.value for combo in GOOGLE_PLAY_SETTINGS]
+    + [radio.key.value for radio in BLUESTACKS_SETTINGS + EMULATOR_CHOICE]
     + [UIField.THEME_NAME.value, UIField.RECORD_FIGHTS_TOGGLE.value]  # Data settings
     + [
         UIField.DECK_NUMBER_SELECTION.value,

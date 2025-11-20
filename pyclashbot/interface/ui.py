@@ -11,9 +11,7 @@ from ttkbootstrap.tooltip import ToolTip
 
 from pyclashbot.interface.config import (
     BLUESTACKS_SETTINGS,
-    GOOGLE_PLAY_SETTINGS,
     JOBS,
-    MEMU_SETTINGS,
     ComboConfig,
 )
 from pyclashbot.interface.enums import (
@@ -88,22 +86,13 @@ class PyClashBotUI(ttk.Window):
         values[UIField.RECORD_FIGHTS_TOGGLE.value] = bool(self.record_var.get())
 
         emulator_choice = self.emulator_var.get()
-        values[UIField.MEMU_EMULATOR_TOGGLE.value] = emulator_choice == "MEmu"
-        values[UIField.GOOGLE_PLAY_EMULATOR_TOGGLE.value] = emulator_choice == "Google Play"
         values[UIField.BLUESTACKS_EMULATOR_TOGGLE.value] = emulator_choice == "BlueStacks 5"
         values[UIField.ADB_TOGGLE.value] = emulator_choice == "ADB Device"
-
-        memu_render = self.memu_render_var.get()
-        values[UIField.DIRECTX_TOGGLE.value] = memu_render == "DirectX"
-        values[UIField.OPENGL_TOGGLE.value] = memu_render == "OpenGL"
 
         bs_render = self.bs_render_var.get()
         values[UIField.BS_RENDERER_DX.value] = bs_render == "DirectX"
         values[UIField.BS_RENDERER_GL.value] = bs_render == "OpenGL"
         values[UIField.BS_RENDERER_VK.value] = bs_render == "Vulkan"
-
-        for field, var in self.gp_vars.items():
-            values[field.value] = var.get()
 
         values[UIField.ADB_SERIAL.value] = self.adb_serial_var.get()
 
@@ -138,19 +127,12 @@ class PyClashBotUI(ttk.Window):
             if UIField.THEME_NAME.value in values:
                 theme_value = str(values[UIField.THEME_NAME.value])
 
-            if values.get(UIField.GOOGLE_PLAY_EMULATOR_TOGGLE.value):
-                self.emulator_var.set("Google Play")
-            elif values.get(UIField.BLUESTACKS_EMULATOR_TOGGLE.value):
+            if values.get(UIField.BLUESTACKS_EMULATOR_TOGGLE.value):
                 self.emulator_var.set("BlueStacks 5")
             elif values.get(UIField.ADB_TOGGLE.value):
                 self.emulator_var.set("ADB Device")
             else:
-                self.emulator_var.set("MEmu")
-
-            if values.get(UIField.DIRECTX_TOGGLE.value):
-                self.memu_render_var.set("DirectX")
-            elif values.get(UIField.OPENGL_TOGGLE.value):
-                self.memu_render_var.set("OpenGL")
+                self.emulator_var.set("BlueStacks 5")
 
             if values.get(UIField.BS_RENDERER_VK.value):
                 self.bs_render_var.set("Vulkan")
@@ -158,13 +140,6 @@ class PyClashBotUI(ttk.Window):
                 self.bs_render_var.set("DirectX")
             elif values.get(UIField.BS_RENDERER_GL.value):
                 self.bs_render_var.set("OpenGL")
-
-            for field, var in self.gp_vars.items():
-                config = next((c for c in GOOGLE_PLAY_SETTINGS if c.key == field), None)
-                if field.value in values and values[field.value] is not None:
-                    var.set(str(values[field.value]))
-                elif config:
-                    var.set(str(config.default))
 
             if UIField.ADB_SERIAL.value in values:
                 self.adb_serial_var.set(str(values[UIField.ADB_SERIAL.value]))
@@ -180,8 +155,6 @@ class PyClashBotUI(ttk.Window):
                 self.roboflow_model_id_var.set(str(values[UIField.ROBOFLOW_MODEL_ID.value]))
             if UIField.MODEL_CONFIDENCE_THRESHOLD.value in values:
                 self.model_confidence_var.set(str(values[UIField.MODEL_CONFIDENCE_THRESHOLD.value]))
-
-            self._update_google_play_comboboxes()
 
         finally:
             self._suspend_traces -= 1
@@ -257,7 +230,7 @@ class PyClashBotUI(ttk.Window):
 
     def set_model_connection_status(self, connected: bool, model_type: str = "", in_use: bool = False) -> None:
         """Update the model connection status display in the GUI.
-        
+
         Args:
             connected: Whether the model is connected and available
             model_type: Type of model (e.g., 'roboflow')
@@ -265,7 +238,7 @@ class PyClashBotUI(ttk.Window):
         """
         if not hasattr(self, 'model_connection_status_label'):
             return
-            
+
         if connected and in_use:
             status_text = f"🟢 {model_type.capitalize()} model connected and active"
             self.model_connection_status_label.configure(text=status_text, foreground="green")
@@ -498,8 +471,8 @@ class PyClashBotUI(ttk.Window):
         selection_frame.pack(fill=X, pady=(0, 10))
         ttk.Label(selection_frame, text="Select Emulator:").pack(side=LEFT, padx=(0, 5))
 
-        self.emulator_var = ttk.StringVar(value="MEmu")  # Default value
-        emulator_choices = ["MEmu", "Google Play", "BlueStacks 5", "ADB Device"]
+        self.emulator_var = ttk.StringVar(value="BlueStacks 5")  # Default value
+        emulator_choices = ["BlueStacks 5", "ADB Device"]
         self.emulator_combo = ttk.Combobox(
             selection_frame,
             textvariable=self.emulator_var,
@@ -517,58 +490,21 @@ class PyClashBotUI(ttk.Window):
         self.settings_container.pack(fill=BOTH, expand=YES)
 
         # Create the individual settings frames but don't pack them yet
-        self.google_play_frame = ttk.Frame(self.settings_container)
-        self.memu_frame = ttk.Frame(self.settings_container)
         self.bluestacks_frame = ttk.Frame(self.settings_container)
         self.adb_frame = ttk.Frame(self.settings_container)
 
         # Store frames in a dictionary for easy access
         self.emulator_settings_frames = {
-            "MEmu": self.memu_frame,
-            "Google Play": self.google_play_frame,
             "BlueStacks 5": self.bluestacks_frame,
             "ADB Device": self.adb_frame,
         }
 
         # Populate the settings frames
-        self.gp_vars: dict[UIField, ttk.StringVar] = {}
-        self._create_google_play_settings(self.google_play_frame)
-        self._create_memu_settings(self.memu_frame)
         self._create_bluestacks_settings(self.bluestacks_frame)
         self._create_adb_tab(self.adb_frame)
 
         # Show the initial settings based on the default value
         self._show_current_emulator_settings()
-
-    def _create_google_play_settings(self, parent_frame: ttk.Frame) -> None:
-        frame = ttk.Labelframe(parent_frame, text="Google Play Options", padding=10)
-        frame.pack(fill="x", padx=5, pady=5)
-
-        left_keys = GOOGLE_PLAY_SETTINGS[:4]
-        right_keys = GOOGLE_PLAY_SETTINGS[4:]
-
-        for row, config in enumerate(left_keys):
-            self._add_google_play_row(frame, row, 0, config)
-
-        for row, config in enumerate(right_keys):
-            self._add_google_play_row(frame, row, 3, config)
-
-    def _create_memu_settings(self, parent_frame: ttk.Frame) -> None:
-        frame = ttk.Labelframe(parent_frame, text="Render Mode", padding=10)
-        frame.pack(fill="x", padx=5, pady=5)
-
-        self.memu_render_var = ttk.StringVar(value="DirectX")
-        for config in MEMU_SETTINGS:
-            text = "DirectX" if config.key == UIField.DIRECTX_TOGGLE else "OpenGL"
-            rb = ttk.Radiobutton(
-                frame,
-                text=text,
-                variable=self.memu_render_var,
-                value=text,
-                command=self._notify_config_change,
-            )
-            rb.pack(anchor="w")
-            self._register_config_widget(config.key.value, rb)
 
     def _create_bluestacks_settings(self, parent_frame: ttk.Frame) -> None:
         frame = ttk.Labelframe(parent_frame, text="Render Mode", padding=10)
@@ -998,40 +934,8 @@ class PyClashBotUI(ttk.Window):
         trace_id = var.trace_add("write", self._notify_config_change)
         self._traces.append((var, trace_id))
 
-    def _add_google_play_row(
-        self,
-        frame: ttk.Labelframe,
-        row: int,
-        column_offset: int,
-        config: ComboConfig,
-    ) -> None:
-        ttk.Label(frame, text=config.label).grid(row=row, column=column_offset, sticky="w", padx=5, pady=2)
-        var = ttk.StringVar(value=str(config.default))
-        combo = ttk.Combobox(
-            frame,
-            values=[str(option) for option in config.values],
-            width=12,
-            state=READONLY,
-            textvariable=var,
-        )
-        combo.grid(row=row, column=column_offset + 1, sticky="w")
-        combo.bind("<<ComboboxSelected>>", self._notify_config_change_event)
-        field = config.key
-        self.gp_vars[field] = var
-        self._trace_variable(var)
-        self._register_config_widget(field.value, combo)
-
     def _notify_config_change_event(self, _event: object) -> None:
         self._notify_config_change()
-
-    def _update_google_play_comboboxes(self) -> None:
-        for field, var in self.gp_vars.items():
-            widget = self._config_widgets.get(field.value)
-            if not widget:
-                continue
-            values = [str(option) for option in widget.cget("values")]
-            if var.get() not in values and values:
-                var.set(values[0])
 
     def _apply_theme(self, theme_name: str, skip_variable_update: bool = False) -> None:
         available = tuple(self._style.theme_names())
