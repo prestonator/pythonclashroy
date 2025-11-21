@@ -158,7 +158,7 @@ def pixel_is_equal(
         bool: whether pixels are equal within tolerance
 
     """
-    # Use numpy for faster comparison if dealing with arrays
+    # Simplified inline comparison for single pixel checks
     return (abs(int(pix1[0]) - int(pix2[0])) < tol and
             abs(int(pix1[1]) - int(pix2[1])) < tol and
             abs(int(pix1[2]) - int(pix2[2])) < tol)

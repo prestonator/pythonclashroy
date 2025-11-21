@@ -6223,10 +6223,12 @@ def check_for_champion_ability(a, b, c):
         ],
     )
 
-    # Vectorized check - more efficient than loop
+    # Check each pixel against all colors - efficient for small sets
     pixels = numpy.array([a, b, c])
-    # Check if any pixel matches any color within tolerance
-    return numpy.any(numpy.all(numpy.abs(colors[:, None, :] - pixels[None, :, :]) <= 30, axis=2))
+    for pixel in pixels:
+        if numpy.any(numpy.all(numpy.abs(colors - pixel) <= 30, axis=1)):
+            return True
+    return False
 
 
 def initialize_card_detector(model_config: dict | None = None):
