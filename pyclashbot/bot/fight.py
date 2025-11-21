@@ -3,7 +3,10 @@
 import collections
 import random
 import time
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from pyclashbot.detection.roboflow_workflow import RoboflowWorkflowClient
 
 from pyclashbot.bot.card_detection import (
     check_which_cards_are_available,
@@ -656,7 +659,7 @@ class BattleStrategy:
         push_mode: str = "Adaptive",
         aggression_level: str = "Moderate",
         logger: Logger | None = None,
-        workflow_client: object | None = None,
+        workflow_client: "RoboflowWorkflowClient | None" = None,
     ):
         """Initialize battle strategy with configurable parameters.
 

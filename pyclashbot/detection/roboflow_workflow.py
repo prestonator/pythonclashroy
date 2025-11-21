@@ -55,22 +55,20 @@ class RoboflowWorkflowClient:
 
                 self._available = True
             except ImportError:
-                print(
-                    "Warning: inference-sdk not installed. "
-                    "Install with: pip install inference-sdk"
-                )
-            except Exception as e:
-                print(f"Warning: Failed to initialize Roboflow workflow client: {e}")
+                # Silent fail - inference-sdk is optional
+                pass
+            except Exception:
+                # Silent fail - workflow configuration issues are optional
+                pass
 
     def run_workflow(
-        self, image: Any, parameters: dict[str, Any] | None = None, **kwargs
+        self, image: Any, parameters: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Run workflow on an image.
 
         Args:
             image: Input image as numpy array (RGB format)
             parameters: Additional workflow parameters
-            **kwargs: Additional keyword arguments for the workflow
 
         Returns:
             dict: Workflow execution results. Structure depends on workflow type:
@@ -117,8 +115,8 @@ class RoboflowWorkflowClient:
             # Parse and normalize the output
             return self._parse_workflow_output(workflow_output)
 
-        except Exception as e:
-            print(f"Warning: Roboflow workflow execution failed: {e}")
+        except Exception:
+            # Silent fail - workflow execution errors are handled gracefully
             return {}
 
     def _parse_workflow_output(self, output: dict[str, Any]) -> dict[str, Any]:
