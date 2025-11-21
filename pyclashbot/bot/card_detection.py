@@ -6065,8 +6065,9 @@ for card_name, card_data in card_color_data.items():
 
 
 def calculate_offset(card_name, card_data, collected_data_array):
-    # Vectorized calculation - more efficient than loop
-    offsets = numpy.sum(numpy.abs(collected_data_array - numpy.array(card_data)), axis=(1, 2))
+    # Vectorized calculation - card_data is already a list of numpy arrays
+    card_data_array = numpy.array(card_data)
+    offsets = numpy.sum(numpy.abs(collected_data_array - card_data_array), axis=(1, 2))
     return card_name, numpy.sum(offsets)
 
 

@@ -8,6 +8,16 @@ import numpy as np
 from pyclashbot.utils.image_handler import open_from_path
 
 # =============================================================================
+# CONSTANTS
+# =============================================================================
+
+# Color tolerance for pixel comparison operations
+COLOR_TOLERANCE = 35
+
+# Pixel sampling step for region checks (every Nth pixel)
+PIXEL_SAMPLING_STEP = 2
+
+# =============================================================================
 # IMAGE RECOGNITION FUNCTIONS
 # =============================================================================
 
@@ -186,19 +196,22 @@ def check_line_for_color(
     iar = np.asarray(emulator.screenshot())
 
     # Vectorized approach - extract all pixels at once
-    pixels = np.array([iar[y, x] for x, y in coordinates])
-    # Convert BGR to RGB (assuming OpenCV format)
-    pixels_rgb = pixels[:, [2, 1, 0]]
+    if coordinates:
+        ys, xs = zip(*[(y, x) for x, y in coordinates])
+        pixels = iar[ys, xs]
+        # Convert BGR to RGB (assuming OpenCV format)
+        pixels_rgb = pixels[:, [2, 1, 0]]
 
-    # Check color match with tolerance using broadcasting
-    color_arr = np.array(color)
-    matches = np.all(np.abs(pixels_rgb - color_arr) < 35, axis=1)
+        # Check color match with tolerance using broadcasting
+        color_arr = np.array(color)
+        matches = np.all(np.abs(pixels_rgb - color_arr) < COLOR_TOLERANCE, axis=1)
 
-    return bool(np.any(matches))
+        return bool(np.any(matches))
+    return False
 
 
 def region_is_color(emulator, region: list, color: tuple[int, int, int]) -> bool:
-    """Check if entire region matches a specific color (sampled every 2 pixels)
+    """Check if entire region matches a specific color (sampled every N pixels)
 
     Args:
         emulator: emulator instance
@@ -211,14 +224,14 @@ def region_is_color(emulator, region: list, color: tuple[int, int, int]) -> bool
     left, top, width, height = region
     iar = np.asarray(emulator.screenshot())
 
-    # Sample every 2 pixels using slicing (more efficient)
-    sampled_region = iar[top:top+height:2, left:left+width:2]
+    # Sample every N pixels using slicing (more efficient)
+    sampled_region = iar[top:top+height:PIXEL_SAMPLING_STEP, left:left+width:PIXEL_SAMPLING_STEP]
     # Convert BGR to RGB
     sampled_rgb = sampled_region[:, :, [2, 1, 0]]
 
     # Vectorized color comparison
     color_arr = np.array(color)
-    matches = np.all(np.abs(sampled_rgb - color_arr) < 35, axis=2)
+    matches = np.all(np.abs(sampled_rgb - color_arr) < COLOR_TOLERANCE, axis=2)
 
     return bool(np.all(matches))
 
