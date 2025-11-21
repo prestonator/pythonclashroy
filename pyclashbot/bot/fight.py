@@ -83,8 +83,13 @@ def do_fight_state(
     fight_mode_choosed,
     called_from_launching=False,
     recording_flag: bool = False,
+    strategy_config: dict | None = None,
 ) -> bool:
-    """Handle the entirety of a battle state (start fight, do fight, end fight)."""
+    """Handle the entirety of a battle state (start fight, do fight, end fight).
+
+    Args:
+        strategy_config: Optional dict with strategy settings for battle tactics
+    """
 
     logger.change_status("do_fight_state state")
     logger.change_status("Waiting for battle to start")
@@ -100,7 +105,7 @@ def do_fight_state(
     logger.log(f'This is the fight mode: "{fight_mode_choosed}"')
 
     # Run regular fight loop if random mode not toggled
-    if not random_fight_mode and _fight_loop(emulator, logger, recording_flag) is False:
+    if not random_fight_mode and _fight_loop(emulator, logger, recording_flag, strategy_config) is False:
         logger.change_status("Failure in fight loop")
         return False
 
@@ -132,6 +137,7 @@ def do_2v2_fight_state(
     logger: Logger,
     random_fight_mode,
     recording_flag: bool = False,
+    strategy_config: dict | None = None,
 ) -> bool:
     """Handle the entirety of the 2v2 battle state (start fight, do fight, end fight)."""
     # Use the same fight logic as 1v1, just with 2v2 mode
@@ -142,6 +148,7 @@ def do_2v2_fight_state(
         "Classic 2v2",
         called_from_launching=False,
         recording_flag=recording_flag,
+        strategy_config=strategy_config,
     )
 
 
@@ -568,6 +575,9 @@ def play_a_card(emulator, logger, recording_flag: bool, battle_strategy: "Battle
     if recording_flag:
         save_play(play_coord, card_index)
 
+    # Track card played for strategy management
+    battle_strategy.on_card_played()
+
     logger.change_status(f"Made the play {click_and_play_card_time_taken}s")
     logger.add_card_played()
 
@@ -581,65 +591,118 @@ class BattleStrategy:
 
     Encapsulates the sophisticated elixir selection logic that changes
     based on battle phase, eliminating the need for global variables.
+    Supports configurable strategies for elixir management, push tactics, and aggression levels.
     """
 
-    def __init__(self):
+    # Predefined elixir strategy profiles
+    ELIXIR_STRATEGIES = {
+        "Conservative": {
+            "early": [0, 0, 0, 0.05, 0.2, 0.35, 0.4],  # Very patient, prefer high elixir
+            "single": [0, 0, 0.1, 0.15, 0.25, 0.3, 0.2],
+            "double": [0.05, 0.1, 0.15, 0.25, 0.25, 0.15, 0.05],
+            "triple": [0.1, 0.15, 0.2, 0.25, 0.2, 0.1, 0],
+        },
+        "Balanced": {
+            "early": [0, 0, 0, 0.1, 0.3, 0.3, 0.3],
+            "single": [0.05, 0.05, 0.15, 0.2, 0.2, 0.25, 0.1],
+            "double": [0.1, 0.15, 0.2, 0.25, 0.15, 0.1, 0.05],
+            "triple": [0.15, 0.2, 0.25, 0.2, 0.15, 0.05, 0],
+        },
+        "Aggressive": {
+            "early": [0, 0, 0.15, 0.25, 0.3, 0.2, 0.1],  # Play faster with less elixir
+            "single": [0.1, 0.15, 0.2, 0.25, 0.2, 0.1, 0],
+            "double": [0.15, 0.2, 0.25, 0.2, 0.15, 0.05, 0],
+            "triple": [0.2, 0.25, 0.25, 0.2, 0.1, 0, 0],
+        },
+        "Adaptive": {  # Dynamic adaptation based on battle phase (default)
+            "early": [0, 0, 0, 0.1, 0.3, 0.3, 0.3],
+            "single": [0.05, 0.05, 0.15, 0.2, 0.2, 0.25, 0.1],
+            "double": [0.1, 0.15, 0.2, 0.25, 0.15, 0.1, 0.05],
+            "triple": [0.15, 0.2, 0.25, 0.2, 0.15, 0.05, 0],
+        },
+    }
+
+    # Aggression level affects thresholds
+    AGGRESSION_THRESHOLDS = {
+        "Defensive": {
+            "early": (7000, 10000),
+            "single": (6000, 9000),
+            "double": (4000, 7000),
+            "triple": (3000, 5000),
+        },
+        "Moderate": {
+            "early": (6000, 9000),
+            "single": (5000, 8000),
+            "double": (3000, 6000),
+            "triple": (2000, 4000),
+        },
+        "Aggressive": {
+            "early": (5000, 8000),
+            "single": (4000, 7000),
+            "double": (2500, 5000),
+            "triple": (1500, 3000),
+        },
+        "Very Aggressive": {
+            "early": (4000, 7000),
+            "single": (3000, 6000),
+            "double": (2000, 4000),
+            "triple": (1000, 2500),
+        },
+    }
+
+    def __init__(
+        self,
+        elixir_mode: str = "Adaptive",
+        push_mode: str = "Adaptive",
+        aggression_level: str = "Moderate",
+        logger: Logger | None = None,
+    ):
+        """Initialize battle strategy with configurable parameters.
+
+        Args:
+            elixir_mode: Elixir management strategy (Conservative, Balanced, Aggressive, Adaptive)
+            push_mode: Push strategy (Single Lane, Dual Lane, Counter Push, Adaptive)
+            aggression_level: Overall aggression (Defensive, Moderate, Aggressive, Very Aggressive)
+            logger: Logger instance for strategy logging
+        """
         self.start_time = None
         self.elixir_amounts = [3, 4, 5, 6, 7, 8, 9]
+        self.logger = logger
 
-        # Strategy weights for each battle phase
-        # Weights correspond to elixir amounts: [3, 4, 5, 6, 7, 8, 9]
-        self.phase_strategies = {
-            "early": [
-                0,
-                0,
-                0,
-                0.1,
-                0.3,
-                0.3,
-                0.3,
-            ],  # 0-7s: Conservative start, wait for 6-9 elixir to build advantage
-            "single": [
-                0.05,
-                0.05,
-                0.15,
-                0.2,
-                0.2,
-                0.25,
-                0.1,
-            ],  # 7-90s: Balanced, favor mid-range elixir (5-8) for consistent pressure
-            "double": [
-                0.1,
-                0.15,
-                0.2,
-                0.25,
-                0.15,
-                0.1,
-                0.05,
-            ],  # 90-200s: More aggressive, play faster with lower elixir amounts
-            "triple": [
-                0.15,
-                0.2,
-                0.25,
-                0.2,
-                0.15,
-                0.05,
-                0,
-            ],  # 200s+: Very aggressive, play constantly with 3-7 elixir, never wait for 9
-        }
+        # Strategy configuration
+        self.elixir_mode = elixir_mode if elixir_mode in self.ELIXIR_STRATEGIES else "Adaptive"
+        self.push_mode = push_mode
+        self.aggression_level = (
+            aggression_level if aggression_level in self.AGGRESSION_THRESHOLDS else "Moderate"
+        )
 
-        # Wait/play thresholds (in milliseconds) for each phase
-        # Lower thresholds = more aggressive play, higher = more patient
-        self.phase_thresholds = {
-            "early": (6000, 9000),    # Patient start to assess opponent
-            "single": (5000, 8000),   # Moderate aggression during single elixir
-            "double": (3000, 6000),   # Much faster plays during double elixir
-            "triple": (2000, 4000),   # Maximum aggression during triple elixir
-        }
+        # Set strategy weights based on elixir mode
+        self.phase_strategies = self.ELIXIR_STRATEGIES[self.elixir_mode]
+
+        # Set thresholds based on aggression level
+        self.phase_thresholds = self.AGGRESSION_THRESHOLDS[self.aggression_level]
+
+        # Track current push lane for push mode strategies
+        self.current_push_lane = "left"  # or "right"
+        self.cards_played_this_push = 0
+        self.push_switch_threshold = 3  # Switch lanes after this many cards
+
+        # Log strategy configuration
+        if self.logger:
+            self.logger.log("BattleStrategy initialized with:")
+            self.logger.log(f"  - Elixir Mode: {self.elixir_mode}")
+            self.logger.log(f"  - Push Mode: {self.push_mode}")
+            self.logger.log(f"  - Aggression Level: {self.aggression_level}")
 
     def start_battle(self):
         """Call when battle begins to start timing."""
         self.start_time = time.time()
+        self.cards_played_this_push = 0
+        if self.logger:
+            self.logger.log(
+                f"Battle started with {self.elixir_mode} elixir, "
+                f"{self.push_mode} push, {self.aggression_level} aggression"
+            )
 
     def get_elapsed_time(self):
         """Get seconds elapsed since battle start."""
@@ -658,25 +721,120 @@ class BattleStrategy:
             return "triple"
 
     def select_elixir_amount(self):
-        """Select elixir amount to wait for based on current battle phase."""
+        """Select elixir amount to wait for based on current battle phase and strategy."""
         phase = self.get_battle_phase()
         weights = self.phase_strategies[phase]
-        return random.choices(self.elixir_amounts, weights=weights, k=1)[0]
+        selected = random.choices(self.elixir_amounts, weights=weights, k=1)[0]
+
+        if self.logger:
+            self.logger.log(
+                f"Phase: {phase}, Selected elixir target: {selected} "
+                f"(Mode: {self.elixir_mode})"
+            )
+
+        return selected
 
     def get_thresholds(self):
-        """Get (WAIT_THRESHOLD, PLAY_THRESHOLD) for current battle phase."""
+        """Get (WAIT_THRESHOLD, PLAY_THRESHOLD) for current battle phase and aggression."""
         phase = self.get_battle_phase()
-        return self.phase_thresholds[phase]
+        thresholds = self.phase_thresholds[phase]
+
+        if self.logger:
+            self.logger.log(
+                f"Phase: {phase}, Thresholds: {thresholds} "
+                f"(Aggression: {self.aggression_level})"
+            )
+
+        return thresholds
+
+    def should_switch_lane(self) -> bool:
+        """Determine if strategy should switch push lanes based on push mode.
+
+        Returns:
+            bool: True if should switch lanes
+        """
+        if self.push_mode == "Single Lane":
+            return False  # Never switch, stay on one lane
+        elif self.push_mode == "Dual Lane":
+            # Switch lanes regularly to pressure both sides
+            if self.cards_played_this_push >= self.push_switch_threshold:
+                self.cards_played_this_push = 0
+                self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
+                if self.logger:
+                    self.logger.log(f"Switching to {self.current_push_lane} lane (Dual Lane strategy)")
+                return True
+            return False
+        elif self.push_mode == "Counter Push":
+            # Opportunistic lane switching based on defense success
+            # TODO: Integrate with Roboflow model for opponent card detection
+            # For now, uses adaptive logic similar to "Adaptive" mode
+            if self.cards_played_this_push >= self.push_switch_threshold + 1:
+                self.cards_played_this_push = 0
+                if random.random() > 0.7:  # 30% chance to switch (less than adaptive)
+                    self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
+                    if self.logger:
+                        self.logger.log(f"Counter-push switch to {self.current_push_lane} lane")
+                    return True
+            return False
+        else:  # Adaptive
+            # Adaptively switch lanes based on situation
+            if self.cards_played_this_push >= self.push_switch_threshold + 1:
+                self.cards_played_this_push = 0
+                if random.random() > 0.6:  # 40% chance to switch
+                    self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
+                    if self.logger:
+                        self.logger.log(f"Adaptive switch to {self.current_push_lane} lane")
+                    return True
+            return False
+
+    def get_preferred_lane(self) -> str:
+        """Get the current preferred lane for card placement.
+
+        Returns:
+            str: "left" or "right"
+        """
+        return self.current_push_lane
+
+    def on_card_played(self):
+        """Track when a card is played for push strategy management."""
+        self.cards_played_this_push += 1
+        self.should_switch_lane()  # Check if we should switch lanes
 
 
-def _fight_loop(emulator, logger: Logger, recording_flag: bool) -> bool:
-    """Method for handling dynamically timed fight"""
+def _fight_loop(
+    emulator,
+    logger: Logger,
+    recording_flag: bool,
+    strategy_config: dict | None = None,
+) -> bool:
+    """Method for handling dynamically timed fight with configurable strategy.
+
+    Args:
+        emulator: The emulator instance
+        logger: Logger instance
+        recording_flag: Whether to record fights
+        strategy_config: Optional dict with strategy settings
+            {
+                'elixir_mode': str,
+                'push_mode': str,
+                'aggression_level': str,
+            }
+    """
     create_default_bridge_iar(emulator)
-    collections.deque(maxlen=3)
+    # Note: last_three_cards deque is managed globally for card selection
     prev_cards_played = logger.get_cards_played()
 
-    # Initialize battle strategy and start timing
-    battle_strategy = BattleStrategy()
+    # Initialize battle strategy with configuration
+    if strategy_config:
+        battle_strategy = BattleStrategy(
+            elixir_mode=strategy_config.get("elixir_mode", "Adaptive"),
+            push_mode=strategy_config.get("push_mode", "Adaptive"),
+            aggression_level=strategy_config.get("aggression_level", "Moderate"),
+            logger=logger,
+        )
+    else:
+        battle_strategy = BattleStrategy(logger=logger)
+
     battle_strategy.start_battle()
 
     while check_for_in_battle_with_delay(emulator):

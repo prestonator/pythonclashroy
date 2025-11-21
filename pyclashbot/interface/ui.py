@@ -12,6 +12,7 @@ from ttkbootstrap.tooltip import ToolTip
 from pyclashbot.interface.config import (
     BLUESTACKS_SETTINGS,
     JOBS,
+    STRATEGY_SETTINGS,
     ComboConfig,
 )
 from pyclashbot.interface.enums import (
@@ -107,6 +108,11 @@ class PyClashBotUI(ttk.Window):
             self.model_confidence_var.get(), fallback=0.7
         )
 
+        # Battle Strategy settings
+        values[UIField.STRATEGY_ELIXIR_MODE.value] = self.strategy_elixir_var.get()
+        values[UIField.STRATEGY_PUSH_MODE.value] = self.strategy_push_var.get()
+        values[UIField.STRATEGY_AGGRESSION_LEVEL.value] = self.strategy_aggression_var.get()
+
         return values
 
     def set_all_values(self, values: dict[str, object]) -> None:
@@ -155,6 +161,14 @@ class PyClashBotUI(ttk.Window):
                 self.roboflow_model_id_var.set(str(values[UIField.ROBOFLOW_MODEL_ID.value]))
             if UIField.MODEL_CONFIDENCE_THRESHOLD.value in values:
                 self.model_confidence_var.set(str(values[UIField.MODEL_CONFIDENCE_THRESHOLD.value]))
+
+            # Battle Strategy settings
+            if UIField.STRATEGY_ELIXIR_MODE.value in values:
+                self.strategy_elixir_var.set(str(values[UIField.STRATEGY_ELIXIR_MODE.value]))
+            if UIField.STRATEGY_PUSH_MODE.value in values:
+                self.strategy_push_var.set(str(values[UIField.STRATEGY_PUSH_MODE.value]))
+            if UIField.STRATEGY_AGGRESSION_LEVEL.value in values:
+                self.strategy_aggression_var.set(str(values[UIField.STRATEGY_AGGRESSION_LEVEL.value]))
 
         finally:
             self._suspend_traces -= 1
@@ -295,18 +309,21 @@ class PyClashBotUI(ttk.Window):
 
         self.jobs_tab = ttk.Frame(self.notebook)
         self.emulator_tab = ttk.Frame(self.notebook)
+        self.strategy_tab = ttk.Frame(self.notebook)
         self.stats_tab = ttk.Frame(self.notebook)
         self.misc_tab = ttk.Frame(self.notebook)
         self.help_tab = ttk.Frame(self.notebook)
 
         self.notebook.add(self.jobs_tab, text="Jobs")
         self.notebook.add(self.emulator_tab, text="Emulator")
+        self.notebook.add(self.strategy_tab, text="Strategy")
         self.notebook.add(self.stats_tab, text="Stats")
         self.notebook.add(self.misc_tab, text="Misc")
         self.notebook.add(self.help_tab, text="Help")
 
         self._create_jobs_tab()
         self._create_emulator_tab()
+        self._create_strategy_tab()
         self._create_stats_tab()
         self._create_misc_tab()
         self._create_help_tab()
@@ -582,6 +599,117 @@ class PyClashBotUI(ttk.Window):
 
         ToolTip(self.adb_set_size_btn, "Sets screen to 419x633 and density to 160")
         ToolTip(self.adb_reset_size_btn, "Resets screen size and density to device defaults")
+
+    def _create_strategy_tab(self) -> None:
+        """Create the Strategy tab with battle strategy configuration."""
+        container = ttk.Frame(self.strategy_tab, padding=10)
+        container.pack(fill=BOTH, expand=YES)
+
+        # Elixir Management Frame
+        elixir_frame = ttk.Labelframe(container, text="⚡ Elixir Management", padding=10)
+        elixir_frame.pack(fill=X, pady=(0, 10))
+
+        ttk.Label(elixir_frame, text="Strategy:").pack(anchor="w", pady=(0, 4))
+
+        elixir_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_ELIXIR_MODE)
+        self.strategy_elixir_var = ttk.StringVar(value=str(elixir_config.default))
+        self.strategy_elixir_combo = ttk.Combobox(
+            elixir_frame,
+            textvariable=self.strategy_elixir_var,
+            values=elixir_config.values,
+            state=READONLY,
+            width=25,
+        )
+        self.strategy_elixir_combo.pack(anchor="w", pady=(0, 8))
+        self._trace_variable(self.strategy_elixir_var)
+        self._register_config_widget(UIField.STRATEGY_ELIXIR_MODE.value, self.strategy_elixir_combo)
+
+        elixir_desc = ttk.Label(
+            elixir_frame,
+            text="• Conservative: Save elixir, wait for bigger pushes\n"
+                 "• Balanced: Mix of patience and aggression\n"
+                 "• Aggressive: Spend elixir quickly, constant pressure\n"
+                 "• Adaptive: Dynamically adjust based on battle phase",
+            justify=LEFT,
+            font=("TkDefaultFont", 9),
+        )
+        elixir_desc.pack(anchor="w", pady=(0, 4))
+
+        # Push Strategy Frame
+        push_frame = ttk.Labelframe(container, text="🎯 Push Strategy", padding=10)
+        push_frame.pack(fill=X, pady=(0, 10))
+
+        ttk.Label(push_frame, text="Strategy:").pack(anchor="w", pady=(0, 4))
+
+        push_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_PUSH_MODE)
+        self.strategy_push_var = ttk.StringVar(value=str(push_config.default))
+        self.strategy_push_combo = ttk.Combobox(
+            push_frame,
+            textvariable=self.strategy_push_var,
+            values=push_config.values,
+            state=READONLY,
+            width=25,
+        )
+        self.strategy_push_combo.pack(anchor="w", pady=(0, 8))
+        self._trace_variable(self.strategy_push_var)
+        self._register_config_widget(UIField.STRATEGY_PUSH_MODE.value, self.strategy_push_combo)
+
+        push_desc = ttk.Label(
+            push_frame,
+            text="• Single Lane: Focus attacks on one lane\n"
+                 "• Dual Lane: Alternate between both lanes\n"
+                 "• Counter Push: Conservative lane switches (enhanced with AI model)\n"
+                 "• Adaptive: Smart lane selection based on situation",
+            justify=LEFT,
+            font=("TkDefaultFont", 9),
+        )
+        push_desc.pack(anchor="w", pady=(0, 4))
+
+        # Aggression Level Frame
+        aggression_frame = ttk.Labelframe(container, text="🔥 Aggression Level", padding=10)
+        aggression_frame.pack(fill=X, pady=(0, 10))
+
+        ttk.Label(aggression_frame, text="Level:").pack(anchor="w", pady=(0, 4))
+
+        aggression_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_AGGRESSION_LEVEL)
+        self.strategy_aggression_var = ttk.StringVar(value=str(aggression_config.default))
+        self.strategy_aggression_combo = ttk.Combobox(
+            aggression_frame,
+            textvariable=self.strategy_aggression_var,
+            values=aggression_config.values,
+            state=READONLY,
+            width=25,
+        )
+        self.strategy_aggression_combo.pack(anchor="w", pady=(0, 8))
+        self._trace_variable(self.strategy_aggression_var)
+        self._register_config_widget(UIField.STRATEGY_AGGRESSION_LEVEL.value, self.strategy_aggression_combo)
+
+        aggression_desc = ttk.Label(
+            aggression_frame,
+            text="• Defensive: Wait longer, patient play style\n"
+                 "• Moderate: Balanced timing between plays\n"
+                 "• Aggressive: Faster plays, more pressure\n"
+                 "• Very Aggressive: Minimal waiting, maximum pressure",
+            justify=LEFT,
+            font=("TkDefaultFont", 9),
+        )
+        aggression_desc.pack(anchor="w", pady=(0, 4))
+
+        # Info box
+        info_frame = ttk.Frame(container)
+        info_frame.pack(fill=X, pady=(10, 0))
+
+        info_label = ttk.Label(
+            info_frame,
+            text="Info: These strategies control how the bot manages elixir, chooses lanes, "
+                 "and times card plays during battle. Settings are applied at the start of each battle.",
+            wraplength=450,
+            justify=LEFT,
+            font=("TkDefaultFont", 9),
+            bootstyle="info",
+        )
+        info_label.pack(anchor="w")
+
 
     def _create_stats_tab(self) -> None:
         container = ttk.Frame(self.stats_tab, padding=10)

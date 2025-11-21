@@ -14,6 +14,16 @@ _Join our [Discord server](https://discord.gg/nqKRkyq2UU) for support, updates, 
 - **Random Decks** - Randomize your deck selection before each battle
 - **Smart Battle Management** - Skip fights when chests are full, disable win/loss tracking
 
+### 🎯 **Battle Strategies** (New!)
+
+- **Elixir Management** - Choose between Conservative, Balanced, Aggressive, or Adaptive elixir strategies
+- **Push Strategies** - Configure Single Lane, Dual Lane, Counter Push, or Adaptive push tactics
+- **Aggression Levels** - Set timing from Defensive to Very Aggressive for different play styles
+- **Smart Phase Adaptation** - Automatically adjusts strategy based on battle phase (early/single/double/triple elixir)
+- **Configurable GUI** - Easy-to-use Strategy tab with detailed descriptions
+- **Comprehensive Logging** - All strategy decisions logged for analysis
+- **[Learn More](BATTLE_STRATEGY.md)** - See full documentation with recommended deck combinations
+
 ### 🎁 **Rewards & Collection**
 
 - **Card Mastery Rewards** - Collect mastery rewards earned from battles
