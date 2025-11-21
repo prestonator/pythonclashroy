@@ -81,8 +81,11 @@ def find_references(
 
     reference_images = [open_from_path(join(reference_folder, name)) for name in filenames]
 
+    # Limit max_workers to reasonable number (CPU count * 2) for better performance
+    max_workers = min(len(reference_images), (os.cpu_count() or 4) * 2)
+
     with ThreadPoolExecutor(
-        max_workers=len(reference_images),
+        max_workers=max_workers,
         thread_name_prefix="ImageRecognition",
     ) as executor:
         futures: list[Future[list[int] | None]] = [
@@ -235,10 +238,10 @@ def all_pixels_are_equal(
     Returns:
         bool: True if all pixels match within tolerance
     """
-    for pixel1, pixel2 in zip(pixels_1, pixels_2):
-        if not pixel_is_equal(pixel1, pixel2, tol):
-            return False
-    return True
+    # Vectorized comparison for better performance
+    arr1 = np.array(pixels_1)
+    arr2 = np.array(pixels_2)
+    return bool(np.all(np.abs(arr1 - arr2) < tol))
 
 
 # =============================================================================
@@ -281,21 +284,6 @@ def check_for_location(locations: list[list[int] | None]) -> bool:
 
     """
     return any(location is not None for location in locations)
-
-
-def convert_pixel(bgr_pixel) -> list[int]:
-    """Convert BGR pixel format to RGB
-
-    Args:
-        bgr_pixel: pixel in BGR format
-
-    Returns:
-        list[int]: pixel in RGB format [red, green, blue]
-    """
-    red = bgr_pixel[2]
-    green = bgr_pixel[1]
-    blue = bgr_pixel[0]
-    return [red, green, blue]
 
 
 def get_line_coordinates(x_1: int, y_1: int, x_2: int, y_2: int) -> list[tuple[int, int]]:
