@@ -39,9 +39,10 @@ _Join our [Discord server](https://discord.gg/nqKRkyq2UU) for support, updates, 
 ### 🤖 **AI/ML Model Integration** (Optional Enhancement)
 
 - **Roboflow Integration** - Enhance card detection with custom ML models from Roboflow
+- **Roboflow Workflows** - Use complex workflows for strategy analysis and enhanced decision-making
 - **Lightweight & Optional** - Works perfectly without models; models provide enhanced accuracy
 - **Flexible Strategy** - Use models for better detection or stick with traditional computer vision
-- **Easy Configuration** - Simple setup with API keys and model IDs
+- **Easy Configuration** - Simple setup with API keys and model IDs in the GUI
 - **[Learn More](pyclashbot/detection/README_MODELS.md)** - See documentation for setup and examples
 
 ## 🚀 Setup Instructions

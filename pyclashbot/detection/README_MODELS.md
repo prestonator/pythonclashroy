@@ -279,8 +279,208 @@ class YoloModel(DetectionModel):
     def predict(self, image, **kwargs):
         # Your YOLO implementation
         pass
-    
+
     def is_available(self):
         # Check if YOLO is available
         pass
 ```
+
+## Roboflow Workflows Integration
+
+### Overview
+
+In addition to object detection models, the bot now supports **Roboflow Workflows** for advanced strategy and analysis. Workflows are complex pipelines that can combine multiple models and operations to perform sophisticated tasks like:
+
+- **Object Detection + Counting**: Count units on the battlefield
+- **Classification**: Analyze game state (e.g., offensive/defensive situations)
+- **Custom Analysis**: Run complex multi-step analysis pipelines
+
+### Workflow Types
+
+The bot supports two main workflow types:
+
+1. **Detection Workflows**: Use object detection models to count and locate objects
+   - Outputs: `count_objects`, `output_image`, `predictions`
+   - Example: Count enemy units to make defensive decisions
+
+2. **Classification Workflows**: Use classification models to categorize game state
+   - Outputs: `predictions`
+   - Example: Classify current battle phase or strategy effectiveness
+
+### Quick Start
+
+#### Step 1: Create a Workflow in Roboflow
+
+1. Go to [Roboflow Workflows](https://docs.roboflow.com/workflows)
+2. Create a workflow with your desired pipeline
+3. Note your workspace name and workflow ID
+
+#### Step 2: Configure in GUI
+
+1. Open the bot's Misc tab
+2. Enable "Enable Roboflow Workflows"
+3. Enter your workspace name (e.g., `my-workspace`)
+4. Enter your workflow ID (e.g., `card-counter`)
+5. Select workflow type (detection or classification)
+6. Click "Test Workflow" to verify connection
+
+#### Step 3: Use in Battle Strategy
+
+The workflow is automatically integrated into battle strategy and can be used for enhanced decision-making.
+
+### Configuration via Code
+
+```python
+from pyclashbot.detection.roboflow_workflow import RoboflowWorkflowClient
+
+# Create workflow client
+workflow_client = RoboflowWorkflowClient(
+    api_key="YOUR_ROBOFLOW_API_KEY",
+    workspace_name="my-workspace",
+    workflow_id="card-counter",
+    workflow_type="detection"  # or "classification"
+)
+
+# Run workflow on an image
+import numpy as np
+screenshot = emulator.screenshot()  # Get game screenshot
+results = workflow_client.run_workflow(screenshot)
+
+# Access results
+if results:
+    if "count_objects" in results:
+        print(f"Detected {results['count_objects']} objects")
+    if "predictions" in results:
+        print(f"Predictions: {results['predictions']}")
+```
+
+### Using Workflows with Battle Strategy
+
+Workflows are automatically integrated into the `BattleStrategy` class when enabled:
+
+```python
+# In battle strategy
+def should_play_defensive(self, emulator):
+    """Use workflow to decide if defensive play is needed."""
+    if self.workflow_client:
+        results = self.analyze_battlefield_with_workflow(emulator)
+        enemy_count = results.get("count_objects", 0)
+        if enemy_count > 3:
+            return True  # Play defensive
+    return False  # Use default strategy
+```
+
+### Example Workflow Use Cases
+
+#### 1. Counter-Push Strategy Enhancement
+
+Use object detection workflow to count enemy units and decide when to counter-push:
+
+```python
+# Detection workflow configuration
+workflow_type: "detection"
+# Output: count_objects, predictions
+
+# Use in strategy:
+# If enemy has 4+ units, wait for defensive play
+# If enemy has 1-2 units, aggressive counter-push
+```
+
+#### 2. Elixir Advantage Detection
+
+Use classification workflow to detect elixir advantage situations:
+
+```python
+# Classification workflow configuration
+workflow_type: "classification"
+# Output: predictions (e.g., "elixir_advantage", "elixir_disadvantage")
+
+# Use in strategy:
+# If "elixir_advantage" detected, play more aggressively
+# If "elixir_disadvantage" detected, play conservatively
+```
+
+### Architecture
+
+```
+detection/
+├── roboflow_workflow.py    # Workflow client implementation
+├── roboflow_model.py        # Model implementation
+└── README_MODELS.md         # This file
+
+bot/
+├── fight.py                 # BattleStrategy with workflow support
+├── worker.py                # Workflow initialization
+└── states.py                # Pass workflow to strategy
+```
+
+### API Reference
+
+#### RoboflowWorkflowClient
+
+```python
+class RoboflowWorkflowClient:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        workspace_name: str | None = None,
+        workflow_id: str | None = None,
+        workflow_type: str = "detection"
+    )
+
+    def run_workflow(
+        self,
+        image: np.ndarray,
+        parameters: dict | None = None
+    ) -> dict
+
+    def is_available(self) -> bool
+
+    def get_workflow_info(self) -> dict
+```
+
+### Troubleshooting Workflows
+
+#### Workflow not connecting
+
+```
+❌ Connection failed - check credentials
+```
+
+**Solution**: 
+- Verify workspace name and workflow ID are correct
+- Ensure API key is set (same key used for models)
+- Test connection using the "Test Workflow" button in GUI
+
+#### No results from workflow
+
+```python
+results = {}  # Empty results
+```
+
+**Solution**:
+- Check workflow is properly configured in Roboflow
+- Verify workflow type matches (detection vs classification)
+- Ensure workflow accepts the input format being provided
+
+#### Workflow too slow
+
+**Solution**:
+- Use workflows selectively (not every frame)
+- Consider simpler workflows or local inference
+- Cache results when possible
+
+### Performance Tips
+
+1. **Selective Usage**: Only run workflows when needed (e.g., every few seconds)
+2. **Async Processing**: Consider running workflows asynchronously
+3. **Result Caching**: Cache workflow results for similar game states
+4. **Workflow Optimization**: Optimize your workflow pipeline in Roboflow
+
+### Further Reading
+
+- [Roboflow Workflows Documentation](https://docs.roboflow.com/workflows)
+- [Workflow Builder](https://app.roboflow.com/workflows)
+- [Example Workflows](https://universe.roboflow.com/workflows)
+- [Inference SDK Workflows Guide](https://inference.roboflow.com/workflows)
+
