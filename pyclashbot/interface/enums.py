@@ -65,6 +65,11 @@ class UIField(StrEnum):
     ROBOFLOW_API_KEY = "roboflow_api_key"
     ROBOFLOW_MODEL_ID = "roboflow_model_id"
     MODEL_CONFIDENCE_THRESHOLD = "model_confidence_threshold"
+    # Roboflow Workflow Settings
+    WORKFLOW_ENABLED_TOGGLE = "workflow_enabled_toggle"
+    WORKFLOW_WORKSPACE_NAME = "workflow_workspace_name"
+    WORKFLOW_ID = "workflow_id"
+    WORKFLOW_TYPE = "workflow_type"
     # Battle Strategy Settings
     STRATEGY_ELIXIR_MODE = "strategy_elixir_mode"
     STRATEGY_PUSH_MODE = "strategy_push_mode"

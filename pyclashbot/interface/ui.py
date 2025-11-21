@@ -108,6 +108,12 @@ class PyClashBotUI(ttk.Window):
             self.model_confidence_var.get(), fallback=0.7
         )
 
+        # Roboflow Workflow settings
+        values[UIField.WORKFLOW_ENABLED_TOGGLE.value] = bool(self.workflow_enabled_var.get())
+        values[UIField.WORKFLOW_WORKSPACE_NAME.value] = self.workflow_workspace_var.get()
+        values[UIField.WORKFLOW_ID.value] = self.workflow_id_var.get()
+        values[UIField.WORKFLOW_TYPE.value] = self.workflow_type_var.get()
+
         # Battle Strategy settings
         values[UIField.STRATEGY_ELIXIR_MODE.value] = self.strategy_elixir_var.get()
         values[UIField.STRATEGY_PUSH_MODE.value] = self.strategy_push_var.get()
@@ -161,6 +167,16 @@ class PyClashBotUI(ttk.Window):
                 self.roboflow_model_id_var.set(str(values[UIField.ROBOFLOW_MODEL_ID.value]))
             if UIField.MODEL_CONFIDENCE_THRESHOLD.value in values:
                 self.model_confidence_var.set(str(values[UIField.MODEL_CONFIDENCE_THRESHOLD.value]))
+
+            # Roboflow Workflow settings
+            if UIField.WORKFLOW_ENABLED_TOGGLE.value in values:
+                self.workflow_enabled_var.set(bool(values[UIField.WORKFLOW_ENABLED_TOGGLE.value]))
+            if UIField.WORKFLOW_WORKSPACE_NAME.value in values:
+                self.workflow_workspace_var.set(str(values[UIField.WORKFLOW_WORKSPACE_NAME.value]))
+            if UIField.WORKFLOW_ID.value in values:
+                self.workflow_id_var.set(str(values[UIField.WORKFLOW_ID.value]))
+            if UIField.WORKFLOW_TYPE.value in values:
+                self.workflow_type_var.set(str(values[UIField.WORKFLOW_TYPE.value]))
 
             # Battle Strategy settings
             if UIField.STRATEGY_ELIXIR_MODE.value in values:
@@ -959,6 +975,112 @@ class PyClashBotUI(ttk.Window):
         # Initialize model settings as disabled
         self._on_model_enabled_changed()
 
+        # Roboflow Workflow Settings
+        ttk.Separator(self.misc_tab, orient="horizontal").pack(fill="x", padx=10, pady=(6, 0))
+        workflow_frame = ttk.Labelframe(self.misc_tab, text="Roboflow Workflow Settings (Optional)", padding=10)
+        workflow_frame.pack(fill="x", padx=10, pady=10)
+
+        # Workflow enabled toggle
+        self.workflow_enabled_var = ttk.BooleanVar(value=False)
+        workflow_enabled_checkbox = ttk.Checkbutton(
+            workflow_frame,
+            text="Enable Roboflow Workflows",
+            variable=self.workflow_enabled_var,
+            bootstyle="round-toggle",
+            command=self._on_workflow_enabled_changed,
+        )
+        workflow_enabled_checkbox.pack(anchor="w", pady=(0, 8))
+        self._trace_variable(self.workflow_enabled_var)
+        self._register_config_widget(UIField.WORKFLOW_ENABLED_TOGGLE.value, workflow_enabled_checkbox)
+
+        # Workflow workspace name
+        workspace_frame = ttk.Frame(workflow_frame)
+        workspace_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(workspace_frame, text="Workspace Name:").pack(anchor="w")
+        self.workflow_workspace_var = ttk.StringVar(value="")
+        workspace_entry = ttk.Entry(
+            workspace_frame,
+            textvariable=self.workflow_workspace_var,
+            width=40,
+        )
+        workspace_entry.pack(fill="x", pady=(4, 0))
+        self._trace_variable(self.workflow_workspace_var)
+        self._register_config_widget(UIField.WORKFLOW_WORKSPACE_NAME.value, workspace_entry)
+        ToolTip(workspace_entry, "Your Roboflow workspace name (e.g., 'my-workspace')")
+
+        # Workflow ID
+        workflow_id_frame = ttk.Frame(workflow_frame)
+        workflow_id_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(workflow_id_frame, text="Workflow ID:").pack(anchor="w")
+        self.workflow_id_var = ttk.StringVar(value="")
+        workflow_id_entry = ttk.Entry(
+            workflow_id_frame,
+            textvariable=self.workflow_id_var,
+            width=40,
+        )
+        workflow_id_entry.pack(fill="x", pady=(4, 0))
+        self._trace_variable(self.workflow_id_var)
+        self._register_config_widget(UIField.WORKFLOW_ID.value, workflow_id_entry)
+        ToolTip(workflow_id_entry, "Workflow ID to execute (e.g., 'card-counter')")
+
+        # Workflow type selection
+        workflow_type_frame = ttk.Frame(workflow_frame)
+        workflow_type_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(workflow_type_frame, text="Workflow Type:").pack(side=LEFT, padx=(0, 8))
+        self.workflow_type_var = ttk.StringVar(value="detection")
+        workflow_type_combo = ttk.Combobox(
+            workflow_type_frame,
+            values=["detection", "classification"],
+            width=15,
+            state=READONLY,
+            textvariable=self.workflow_type_var,
+        )
+        workflow_type_combo.pack(side=LEFT)
+        self._trace_variable(self.workflow_type_var)
+        self._register_config_widget(UIField.WORKFLOW_TYPE.value, workflow_type_combo)
+        ToolTip(workflow_type_combo, "Type of workflow: detection (count objects) or classification (single label)")
+
+        # Test Workflow button and status
+        test_workflow_frame = ttk.Frame(workflow_frame)
+        test_workflow_frame.pack(fill="x", pady=(8, 0))
+        self.test_workflow_btn = ttk.Button(
+            test_workflow_frame,
+            text="Test Workflow",
+            command=self._on_test_workflow_connection,
+            bootstyle="info-outline",
+        )
+        self.test_workflow_btn.pack(side=LEFT, padx=(0, 8))
+        self._register_config_widget("test_workflow_button", self.test_workflow_btn)
+
+        self.workflow_status_label = ttk.Label(
+            test_workflow_frame,
+            text="",
+            font=("TkDefaultFont", 9),
+        )
+        self.workflow_status_label.pack(side=LEFT)
+
+        # Info label for workflows
+        workflow_info_label = ttk.Label(
+            workflow_frame,
+            text="Info: Workflows allow you to use complex Roboflow pipelines for strategy\n"
+            "and analysis. Requires the same API key as the model settings above.\n"
+            "See Roboflow workflows documentation for more information.",
+            bootstyle="info",
+            font=("TkDefaultFont", 8),
+        )
+        workflow_info_label.pack(anchor="w", pady=(8, 0))
+
+        # Workflow connection status (displayed when workflow is active)
+        self.workflow_connection_status_label = ttk.Label(
+            workflow_frame,
+            text="",
+            font=("TkDefaultFont", 9, "bold"),
+        )
+        self.workflow_connection_status_label.pack(anchor="w", pady=(8, 0))
+
+        # Initialize workflow settings as disabled
+        self._on_workflow_enabled_changed()
+
         ttk.Separator(self.misc_tab, orient="horizontal").pack(fill="x", padx=10, pady=(6, 0))
         display_frame = ttk.Labelframe(self.misc_tab, text="Display Settings", padding=10)
         display_frame.pack(fill="x", padx=10, pady=10)
@@ -1218,6 +1340,95 @@ class PyClashBotUI(ttk.Window):
             self.set_model_connection_status(False)
         finally:
             self.test_model_btn.configure(state=tk.NORMAL)
+
+    def _on_workflow_enabled_changed(self) -> None:
+        """Handle workflow enabled toggle change."""
+        enabled = self.workflow_enabled_var.get()
+        state = tk.NORMAL if enabled else tk.DISABLED
+
+        # Enable/disable workflow configuration widgets
+        for key in [
+            UIField.WORKFLOW_WORKSPACE_NAME.value,
+            UIField.WORKFLOW_ID.value,
+            UIField.WORKFLOW_TYPE.value,
+            "test_workflow_button",
+        ]:
+            widget = self._config_widgets.get(key)
+            if widget:
+                try:
+                    if isinstance(widget, ttk.Combobox):
+                        widget.configure(state=READONLY if enabled else tk.DISABLED)
+                    else:
+                        widget.configure(state=state)
+                except tk.TclError:
+                    continue
+
+        # Clear status label when disabled
+        if not enabled and hasattr(self, "workflow_status_label"):
+            self.workflow_status_label.configure(text="")
+
+        self._notify_config_change()
+
+    def _on_test_workflow_connection(self) -> None:
+        """Test connection to Roboflow workflow."""
+        api_key = self.roboflow_api_key_var.get()
+        workspace_name = self.workflow_workspace_var.get()
+        workflow_id = self.workflow_id_var.get()
+
+        if not api_key:
+            self.workflow_status_label.configure(
+                text="❌ Please enter API key in Model Settings above", foreground="red"
+            )
+            return
+
+        if not workspace_name or not workflow_id:
+            self.workflow_status_label.configure(
+                text="❌ Please enter Workspace Name and Workflow ID", foreground="red"
+            )
+            return
+
+        self.workflow_status_label.configure(text="⏳ Testing workflow...", foreground="gray")
+        self.test_workflow_btn.configure(state=tk.DISABLED)
+        self.update_idletasks()
+
+        try:
+            from pyclashbot.detection.roboflow_workflow import RoboflowWorkflowClient  # noqa: PLC0415
+
+            # Create a test workflow client
+            workflow_type = self.workflow_type_var.get()
+            test_workflow = RoboflowWorkflowClient(
+                api_key=api_key,
+                workspace_name=workspace_name,
+                workflow_id=workflow_id,
+                workflow_type=workflow_type,
+            )
+
+            if not test_workflow.is_available():
+                self.workflow_status_label.configure(
+                    text="❌ Connection failed - check credentials", foreground="red"
+                )
+                return
+
+            # Try a simple test with a dummy image
+            import numpy as np  # noqa: PLC0415
+
+            test_image = np.zeros((100, 100, 3), dtype=np.uint8)
+            _result = test_workflow.run_workflow(test_image)
+
+            # Connection successful (even if no results, it means API works)
+            self.workflow_status_label.configure(text="✓ Workflow connection successful!", foreground="green")
+
+        except ImportError:
+            self.workflow_status_label.configure(
+                text="❌ inference-sdk not installed. Run: pip install inference-sdk", foreground="red"
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if len(error_msg) > 50:
+                error_msg = error_msg[:50] + "..."
+            self.workflow_status_label.configure(text=f"❌ Error: {error_msg}", foreground="red")
+        finally:
+            self.test_workflow_btn.configure(state=tk.NORMAL)
 
     @staticmethod
     def _safe_int(value: object, fallback: int = 0) -> int:
