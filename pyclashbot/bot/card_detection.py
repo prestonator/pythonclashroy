@@ -6067,6 +6067,15 @@ for card_name, card_data in card_color_data.items():
 def calculate_offset(card_name, card_data, collected_data_array):
     # Vectorized calculation - card_data is already a list of numpy arrays
     card_data_array = numpy.array(card_data)
+    # Ensure shapes are compatible for vectorized operation
+    if card_data_array.shape != collected_data_array.shape:
+        # Fallback to element-wise comparison if shapes don't match
+        total_offset = 0
+        for i, corner_data_array in enumerate(card_data):
+            offset = numpy.sum(numpy.abs(collected_data_array[i] - corner_data_array))
+            total_offset += offset
+        return card_name, total_offset
+    # Vectorized calculation when shapes match
     offsets = numpy.sum(numpy.abs(collected_data_array - card_data_array), axis=(1, 2))
     return card_name, numpy.sum(offsets)
 

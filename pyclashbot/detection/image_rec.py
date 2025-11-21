@@ -197,9 +197,11 @@ def check_line_for_color(
 
     # Vectorized approach - extract all pixels at once
     if coordinates:
-        ys, xs = zip(*[(y, x) for x, y in coordinates])
+        coord_array = np.array(coordinates)
+        xs, ys = coord_array[:, 0], coord_array[:, 1]
         pixels = iar[ys, xs]
-        # Convert BGR to RGB (assuming OpenCV format)
+        # Convert BGR to RGB - OpenCV/emulator screenshots are in BGR format
+        # This conversion matches the expected RGB color format for comparison
         pixels_rgb = pixels[:, [2, 1, 0]]
 
         # Check color match with tolerance using broadcasting
