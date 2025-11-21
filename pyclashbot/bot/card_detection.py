@@ -6065,11 +6065,9 @@ for card_name, card_data in card_color_data.items():
 
 
 def calculate_offset(card_name, card_data, collected_data_array):
-    total_offset = 0
-    for i, corner_data_array in enumerate(card_data):
-        offset = numpy.sum(numpy.abs(collected_data_array[i] - corner_data_array))
-        total_offset += offset
-    return card_name, total_offset
+    # Vectorized calculation - more efficient than loop
+    offsets = numpy.sum(numpy.abs(collected_data_array - numpy.array(card_data)), axis=(1, 2))
+    return card_name, numpy.sum(offsets)
 
 
 def find_closest_card(collected_data):
@@ -6216,7 +6214,7 @@ def check_which_cards_are_available(emulator, check_champion=False, check_side=F
 
 
 def check_for_champion_ability(a, b, c):
-    pixels = numpy.array([a, b, c])
+    # Define champion purple color range (pre-computed for efficiency)
     colors = numpy.array(
         [
             [215, 28, 223],
@@ -6225,11 +6223,10 @@ def check_for_champion_ability(a, b, c):
         ],
     )
 
-    for p in pixels:
-        if numpy.any(numpy.all(numpy.abs(colors - p) <= 30, axis=1)):
-            return True
-
-    return False
+    # Vectorized check - more efficient than loop
+    pixels = numpy.array([a, b, c])
+    # Check if any pixel matches any color within tolerance
+    return numpy.any(numpy.all(numpy.abs(colors[:, None, :] - pixels[None, :, :]) <= 30, axis=2))
 
 
 def initialize_card_detector(model_config: dict | None = None):

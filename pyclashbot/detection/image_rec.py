@@ -155,10 +155,10 @@ def pixel_is_equal(
         bool: whether pixels are equal within tolerance
 
     """
-    diff_r = abs(int(pix1[0]) - int(pix2[0]))
-    diff_g = abs(int(pix1[1]) - int(pix2[1]))
-    diff_b = abs(int(pix1[2]) - int(pix2[2]))
-    return (diff_r < tol) and (diff_g < tol) and (diff_b < tol)
+    # Use numpy for faster comparison if dealing with arrays
+    return (abs(int(pix1[0]) - int(pix2[0])) < tol and
+            abs(int(pix1[1]) - int(pix2[1])) < tol and
+            abs(int(pix1[2]) - int(pix2[2])) < tol)
 
 
 def check_line_for_color(
@@ -182,13 +182,16 @@ def check_line_for_color(
     coordinates = get_line_coordinates(x_1, y_1, x_2, y_2)
     iar = np.asarray(emulator.screenshot())
 
-    for coordinate in coordinates:
-        pixel = iar[coordinate[1]][coordinate[0]]
-        pixel = convert_pixel(pixel)
+    # Vectorized approach - extract all pixels at once
+    pixels = np.array([iar[y, x] for x, y in coordinates])
+    # Convert BGR to RGB (assuming OpenCV format)
+    pixels_rgb = pixels[:, [2, 1, 0]]
 
-        if pixel_is_equal(color, pixel, tol=35):
-            return True
-    return False
+    # Check color match with tolerance using broadcasting
+    color_arr = np.array(color)
+    matches = np.all(np.abs(pixels_rgb - color_arr) < 35, axis=1)
+
+    return bool(np.any(matches))
 
 
 def region_is_color(emulator, region: list, color: tuple[int, int, int]) -> bool:
@@ -205,14 +208,16 @@ def region_is_color(emulator, region: list, color: tuple[int, int, int]) -> bool
     left, top, width, height = region
     iar = np.asarray(emulator.screenshot())
 
-    for x_index in range(left, left + width, 2):
-        for y_index in range(top, top + height, 2):
-            pixel = iar[y_index][x_index]
-            pixel = convert_pixel(pixel)
-            if not pixel_is_equal(color, pixel, tol=35):
-                return False
+    # Sample every 2 pixels using slicing (more efficient)
+    sampled_region = iar[top:top+height:2, left:left+width:2]
+    # Convert BGR to RGB
+    sampled_rgb = sampled_region[:, :, [2, 1, 0]]
 
-    return True
+    # Vectorized color comparison
+    color_arr = np.array(color)
+    matches = np.all(np.abs(sampled_rgb - color_arr) < 35, axis=2)
+
+    return bool(np.all(matches))
 
 
 def all_pixels_are_equal(

@@ -3,8 +3,8 @@ import json
 import os
 import time
 
+import cv2
 import numpy as np
-from PIL import Image
 
 top_folder = r"recordings"
 
@@ -83,10 +83,8 @@ def save_image(image: np.ndarray):
         print(f"[!] Warning. Fight image file {fp} already exists.")
         return False
 
-    # Convert BGR (OpenCV) to RGB (PIL)
-    rgb_image = image[..., ::-1]
-    pil_image = Image.fromarray(rgb_image)
-    pil_image.save(fp)
+    # Use OpenCV for faster image saving (image is already in BGR format)
+    cv2.imwrite(fp, image)
     print("Saved a fight image to", fp)
     return True
 
