@@ -656,6 +656,7 @@ class BattleStrategy:
         push_mode: str = "Adaptive",
         aggression_level: str = "Moderate",
         logger: Logger | None = None,
+        workflow_client: object | None = None,
     ):
         """Initialize battle strategy with configurable parameters.
 
@@ -664,10 +665,12 @@ class BattleStrategy:
             push_mode: Push strategy (Single Lane, Dual Lane, Counter Push, Adaptive)
             aggression_level: Overall aggression (Defensive, Moderate, Aggressive, Very Aggressive)
             logger: Logger instance for strategy logging
+            workflow_client: Optional RoboflowWorkflowClient for enhanced strategy decisions
         """
         self.start_time = None
         self.elixir_amounts = [3, 4, 5, 6, 7, 8, 9]
         self.logger = logger
+        self.workflow_client = workflow_client
 
         # Strategy configuration
         self.elixir_mode = elixir_mode if elixir_mode in self.ELIXIR_STRATEGIES else "Adaptive"
@@ -693,6 +696,8 @@ class BattleStrategy:
             self.logger.log(f"  - Elixir Mode: {self.elixir_mode}")
             self.logger.log(f"  - Push Mode: {self.push_mode}")
             self.logger.log(f"  - Aggression Level: {self.aggression_level}")
+            if self.workflow_client:
+                self.logger.log("  - Roboflow Workflow: Enabled for enhanced strategy")
 
     def start_battle(self):
         """Call when battle begins to start timing."""
@@ -800,6 +805,41 @@ class BattleStrategy:
         self.cards_played_this_push += 1
         self.should_switch_lane()  # Check if we should switch lanes
 
+    def analyze_battlefield_with_workflow(self, emulator):
+        """Use Roboflow workflow to analyze the battlefield for enhanced strategy decisions.
+
+        This method can be called to get insights about the battlefield state using
+        the configured workflow (e.g., object detection for counting units, classification
+        for analyzing game state).
+
+        Args:
+            emulator: The emulator instance to capture screenshots from
+
+        Returns:
+            dict: Workflow results or empty dict if workflow not available
+        """
+        if not self.workflow_client or not self.workflow_client.is_available():
+            return {}
+
+        try:
+            # Get current battlefield screenshot
+            screenshot = emulator.screenshot()
+
+            # Run workflow on the screenshot
+            result = self.workflow_client.run_workflow(screenshot)
+
+            if self.logger:
+                if result.get("count_objects") is not None:
+                    self.logger.log(f"Workflow detected {result['count_objects']} objects on battlefield")
+                if result.get("predictions"):
+                    self.logger.log(f"Workflow predictions: {len(result['predictions'])} items")
+
+            return result
+        except Exception as e:
+            if self.logger:
+                self.logger.log(f"Workflow analysis failed: {e}")
+            return {}
+
 
 def _fight_loop(
     emulator,
@@ -831,6 +871,7 @@ def _fight_loop(
             push_mode=strategy_config.get("push_mode", "Adaptive"),
             aggression_level=strategy_config.get("aggression_level", "Moderate"),
             logger=logger,
+            workflow_client=strategy_config.get("workflow_client", None),
         )
     else:
         battle_strategy = BattleStrategy(logger=logger)

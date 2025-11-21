@@ -73,6 +73,49 @@ class WorkerThread(PausableThread):
         else:
             self.logger.log("Model detection disabled - using traditional CV methods only")
 
+        # Initialize workflow configuration if provided
+        workflow_config = {
+            'workflow_enabled': jobs.get(UIField.WORKFLOW_ENABLED_TOGGLE.value, False),
+            'roboflow_api_key': jobs.get(UIField.ROBOFLOW_API_KEY.value),
+            'workspace_name': jobs.get(UIField.WORKFLOW_WORKSPACE_NAME.value),
+            'workflow_id': jobs.get(UIField.WORKFLOW_ID.value),
+            'workflow_type': jobs.get(UIField.WORKFLOW_TYPE.value, 'detection'),
+        }
+
+        # Initialize workflow client if enabled
+        workflow_client = None
+        if workflow_config.get('workflow_enabled'):
+            try:
+                from pyclashbot.detection.roboflow_workflow import RoboflowWorkflowClient  # noqa: PLC0415
+
+                workflow_client = RoboflowWorkflowClient(
+                    api_key=workflow_config.get('roboflow_api_key'),
+                    workspace_name=workflow_config.get('workspace_name'),
+                    workflow_id=workflow_config.get('workflow_id'),
+                    workflow_type=workflow_config.get('workflow_type', 'detection'),
+                )
+
+                if workflow_client.is_available():
+                    workflow_info = workflow_client.get_workflow_info()
+                    self.logger.log("✓ Roboflow workflow initialized")
+                    self.logger.log(f"  Workspace: {workflow_info.get('workspace_name')}")
+                    self.logger.log(f"  Workflow ID: {workflow_info.get('workflow_id')}")
+                    self.logger.log(f"  Type: {workflow_info.get('workflow_type')}")
+                else:
+                    self.logger.log("⚠ Workflow configuration found but workflow not available")
+                    workflow_client = None
+            except Exception as e:
+                self.logger.log(f"⚠ Failed to initialize workflow: {e}")
+                workflow_client = None
+        else:
+            self.logger.log("Roboflow workflows disabled")
+
+        # Store workflow client for use in states
+        self.workflow_client = workflow_client
+
+        # Add workflow client to jobs so it can be passed to states
+        jobs['workflow_client'] = workflow_client
+
         state = "start"
         state_history = StateHistory(self.logger)
         state_order = StateOrder()

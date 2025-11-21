@@ -433,6 +433,7 @@ def state_tree(
             "elixir_mode": job_list.get(UIField.STRATEGY_ELIXIR_MODE, "Adaptive"),
             "push_mode": job_list.get(UIField.STRATEGY_PUSH_MODE, "Adaptive"),
             "aggression_level": job_list.get(UIField.STRATEGY_AGGRESSION_LEVEL, "Moderate"),
+            "workflow_client": job_list.get("workflow_client", None),
         }
 
         if (
@@ -468,6 +469,7 @@ def state_tree(
             "elixir_mode": job_list.get(UIField.STRATEGY_ELIXIR_MODE, "Adaptive"),
             "push_mode": job_list.get(UIField.STRATEGY_PUSH_MODE, "Adaptive"),
             "aggression_level": job_list.get(UIField.STRATEGY_AGGRESSION_LEVEL, "Moderate"),
+            "workflow_client": job_list.get("workflow_client", None),
         }
 
         if (
