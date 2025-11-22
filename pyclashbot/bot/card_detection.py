@@ -6235,6 +6235,9 @@ NON_DEFENSIVE_CARD_TYPES = {
     "miner",
 }
 
+# Card types that are naturally defensive and use their predefined coordinates
+NATURALLY_DEFENSIVE_CARD_TYPES = {"spawner", "turret", "long_range", "princess"}
+
 
 def check_which_cards_are_available(emulator, check_champion=False, check_side=False):
     global battle_iar
@@ -6422,8 +6425,13 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
     """Calculate play coordinates for a card based on grouping, side, and time.
 
     Enhanced to detect threats and respond defensively when enemy units are near our towers.
+
+    Note: Threat detection requires battle_iar to be initialized by check_which_cards_are_available().
+    Until then, detect_threat_level() returns (0, 0), effectively disabling defensive placement
+    until the battle baseline is established (which happens automatically on first card check).
     """
     # Detect threat levels on both sides
+    # Returns (0, 0) if battle_iar not yet initialized, which is safe
     left_threat, right_threat = detect_threat_level()
 
     # Determine if we're under heavy threat
@@ -6523,7 +6531,7 @@ def get_defensive_coords(side_preference: str, card_grouping: str):
     # Defensive cards should be placed closer to our towers (higher Y values)
     # to intercept enemy units before they reach our towers
 
-    if card_grouping in ["spawner", "turret", "long_range", "princess"]:
+    if card_grouping in NATURALLY_DEFENSIVE_CARD_TYPES:
         # These are naturally defensive, use their predefined coords
         return None
 
