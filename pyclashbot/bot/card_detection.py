@@ -6474,6 +6474,7 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
 
 
 bridge_iar = 0
+battle_iar = 0  # Module-level declaration for global battle screenshot
 
 
 def create_default_bridge_iar(emulator):
@@ -6515,8 +6516,7 @@ def detect_threat_level():
     Returns:
         tuple: (left_threat, right_threat) - higher values indicate more threat
     """
-    bridge_offsets = analyze_bridge_activity()
-    return (bridge_offsets[0], bridge_offsets[1])
+    return tuple(analyze_bridge_activity())
 
 
 def get_defensive_coords(side_preference: str, card_grouping: str):
