@@ -6209,6 +6209,32 @@ DEFENSIVE_LEFT_X_MAX = 180  # Maximum X for left side defensive placement
 DEFENSIVE_RIGHT_X_MIN = 240  # Minimum X for right side defensive placement
 DEFENSIVE_RIGHT_X_MAX = 350  # Maximum X for right side defensive placement
 
+# Bridge detection constants
+BRIDGE_WIDTH = 40  # Width of bridge area to analyze for threat detection
+BRIDGE_HEIGHT = 175  # Height of bridge area to analyze for threat detection
+
+# Card types that should not use defensive placement logic
+NON_DEFENSIVE_CARD_TYPES = {
+    "spell",
+    "earthquake",
+    "fireball",
+    "freeze",
+    "poison",
+    "arrows",
+    "snowball",
+    "zap",
+    "rocket",
+    "lightning",
+    "log",
+    "tornado",
+    "graveyard",
+    "goblin_barrel",
+    "spawner",
+    "turret",
+    "xbow",
+    "miner",
+}
+
 
 def check_which_cards_are_available(emulator, check_champion=False, check_side=False):
     global battle_iar
@@ -6407,26 +6433,7 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
 
     # If we're under threat on the preferred side and this is a card that can defend
     # (not a spell or building), place it defensively
-    if card_grouping not in [
-        "spell",
-        "earthquake",
-        "fireball",
-        "freeze",
-        "poison",
-        "arrows",
-        "snowball",
-        "zap",
-        "rocket",
-        "lightning",
-        "log",
-        "tornado",
-        "graveyard",
-        "goblin_barrel",
-        "spawner",
-        "turret",
-        "xbow",
-        "miner",
-    ]:
+    if card_grouping not in NON_DEFENSIVE_CARD_TYPES:
         if (side_preference == "left" and under_threat_left) or (side_preference == "right" and under_threat_right):
             # Use defensive placement
             defensive_coord = get_defensive_coords(side_preference, card_grouping)
@@ -6469,25 +6476,38 @@ def create_default_bridge_iar(emulator):
 bridge_pixel = [[100, 200], [275, 200]]
 
 
+def analyze_bridge_activity():
+    """Analyze bridge activity to detect card plays and threats.
+
+    Returns:
+        list: Color offset values for left and right bridges
+    """
+    if not isinstance(battle_iar, numpy.ndarray):
+        return [0, 0]
+
+    bridge_color_offset = []
+    for i, bridge in enumerate(bridge_pixel):
+        all_coords = [
+            (y, x)
+            for x in range(bridge[0], bridge[0] + BRIDGE_WIDTH)
+            for y in range(bridge[1], bridge[1] + BRIDGE_HEIGHT)
+        ]
+        pixel_coords = numpy.array(all_coords)
+        iar_pixels = battle_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
+        bridge_iar_pixels = bridge_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
+        bridge_color_offset.append(numpy.linalg.norm(iar_pixels - bridge_iar_pixels))
+
+    return bridge_color_offset
+
+
 def detect_threat_level():
     """Detect threat level on each side based on bridge activity.
 
     Returns:
         tuple: (left_threat, right_threat) - higher values indicate more threat
     """
-    # Check if battle_iar is initialized (it's set to 0 initially, then becomes a numpy array)
-    if not isinstance(battle_iar, numpy.ndarray):
-        return (0, 0)
-
-    bridge_color_offset = []
-    for i, bridge in enumerate(bridge_pixel):
-        all_coords = [(y, x) for x in range(bridge[0], bridge[0] + 40) for y in range(bridge[1], bridge[1] + 175)]
-        pixel_coords = numpy.array(all_coords)
-        iar_pixels = battle_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
-        bridge_iar_pixels = bridge_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
-        bridge_color_offset.append(numpy.linalg.norm(iar_pixels - bridge_iar_pixels))
-
-    return (bridge_color_offset[0], bridge_color_offset[1])
+    bridge_offsets = analyze_bridge_activity()
+    return (bridge_offsets[0], bridge_offsets[1])
 
 
 def get_defensive_coords(side_preference: str, card_grouping: str):
@@ -6523,13 +6543,12 @@ def get_defensive_coords(side_preference: str, card_grouping: str):
 
 
 def switch_side():
-    bridge_color_offset = []
-    for i, bridge in enumerate(bridge_pixel):
-        all_coords = [(y, x) for x in range(bridge[0], bridge[0] + 40) for y in range(bridge[1], bridge[1] + 175)]
-        pixel_coords = numpy.array(all_coords)
-        iar_pixels = battle_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
-        bridge_iar_pixels = bridge_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
-        bridge_color_offset.append(numpy.linalg.norm(iar_pixels - bridge_iar_pixels))
+    """Determine which side has more activity and should be focused on.
+
+    Returns:
+        tuple: (activity_level, side) where side is "left" or "right"
+    """
+    bridge_color_offset = analyze_bridge_activity()
 
     if bridge_color_offset[0] > bridge_color_offset[1]:
         return bridge_color_offset[0], "left"
