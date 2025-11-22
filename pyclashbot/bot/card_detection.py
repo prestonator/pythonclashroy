@@ -6200,6 +6200,15 @@ global battle_iar  # noqa: PLW0604
 
 play_side = "left"
 
+# Defensive placement constants
+THREAT_DETECTION_THRESHOLD = 5000  # Threshold for detecting significant enemy activity
+DEFENSIVE_Y_MIN = 320  # Minimum Y coordinate for defensive placement
+DEFENSIVE_Y_MAX = 380  # Maximum Y coordinate for defensive placement
+DEFENSIVE_LEFT_X_MIN = 70  # Minimum X for left side defensive placement
+DEFENSIVE_LEFT_X_MAX = 180  # Maximum X for left side defensive placement
+DEFENSIVE_RIGHT_X_MIN = 240  # Minimum X for right side defensive placement
+DEFENSIVE_RIGHT_X_MAX = 350  # Maximum X for right side defensive placement
+
 
 def check_which_cards_are_available(emulator, check_champion=False, check_side=False):
     global battle_iar
@@ -6391,12 +6400,10 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
     # Detect threat levels on both sides
     left_threat, right_threat = detect_threat_level()
 
-    # Determine if we're under heavy threat (threshold can be tuned)
+    # Determine if we're under heavy threat
     # Higher values mean more activity/threat on that side
-    threat_threshold = 5000  # Tunable threshold for what constitutes a "threat"
-
-    under_threat_left = left_threat > threat_threshold
-    under_threat_right = right_threat > threat_threshold
+    under_threat_left = left_threat > THREAT_DETECTION_THRESHOLD
+    under_threat_right = right_threat > THREAT_DETECTION_THRESHOLD
 
     # If we're under threat on the preferred side and this is a card that can defend
     # (not a spell or building), place it defensively
@@ -6468,7 +6475,8 @@ def detect_threat_level():
     Returns:
         tuple: (left_threat, right_threat) - higher values indicate more threat
     """
-    if battle_iar == 0:
+    # Check if battle_iar is initialized (it's set to 0 initially, then becomes a numpy array)
+    if not isinstance(battle_iar, numpy.ndarray):
         return (0, 0)
 
     bridge_color_offset = []
@@ -6500,13 +6508,18 @@ def get_defensive_coords(side_preference: str, card_grouping: str):
         return None
 
     # For troops and other cards, place defensively near the bridge on threatened side
-    # Y ~320-380: Between bridge and our towers for defensive positioning
     if side_preference == "left":
         # Left side defensive placement
-        return (random.randint(70, 180), random.randint(320, 380))
+        return (
+            random.randint(DEFENSIVE_LEFT_X_MIN, DEFENSIVE_LEFT_X_MAX),
+            random.randint(DEFENSIVE_Y_MIN, DEFENSIVE_Y_MAX),
+        )
     else:
         # Right side defensive placement
-        return (random.randint(240, 350), random.randint(320, 380))
+        return (
+            random.randint(DEFENSIVE_RIGHT_X_MIN, DEFENSIVE_RIGHT_X_MAX),
+            random.randint(DEFENSIVE_Y_MIN, DEFENSIVE_Y_MAX),
+        )
 
 
 def switch_side():
