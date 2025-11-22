@@ -6473,8 +6473,8 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
             return random.choice(group_datum["coords"])
 
 
-bridge_iar = 0
-battle_iar = 0  # Module-level declaration for global battle screenshot
+bridge_iar = None  # Module-level declaration for baseline bridge screenshot
+battle_iar = None  # Module-level declaration for current battle screenshot
 
 
 def create_default_bridge_iar(emulator):
@@ -6489,11 +6489,11 @@ def analyze_bridge_activity():
     """Analyze bridge activity to detect card plays and threats.
 
     Returns:
-        list: Color offset values for left and right bridges
+        tuple: Color offset values for left and right bridges (left_offset, right_offset)
     """
-    # Both battle_iar and bridge_iar must be numpy arrays for analysis
-    if not isinstance(battle_iar, numpy.ndarray) or not isinstance(bridge_iar, numpy.ndarray):
-        return [0, 0]
+    # Both battle_iar and bridge_iar must be initialized for analysis
+    if battle_iar is None or bridge_iar is None:
+        return (0, 0)
 
     bridge_color_offset = []
     for i, bridge in enumerate(bridge_pixel):
@@ -6507,7 +6507,7 @@ def analyze_bridge_activity():
         bridge_iar_pixels = bridge_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
         bridge_color_offset.append(numpy.linalg.norm(iar_pixels - bridge_iar_pixels))
 
-    return bridge_color_offset
+    return tuple(bridge_color_offset)
 
 
 def detect_threat_level():
@@ -6516,7 +6516,7 @@ def detect_threat_level():
     Returns:
         tuple: (left_threat, right_threat) - higher values indicate more threat
     """
-    return tuple(analyze_bridge_activity())
+    return analyze_bridge_activity()
 
 
 def get_defensive_coords(side_preference: str, card_grouping: str):
