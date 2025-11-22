@@ -11,8 +11,9 @@ _global_detector = None
 PLAY_COORDS = {
     # done
     "spell": {
-        "left": [(116, 160)],
-        "right": [(302, 160)],
+        # Target princess towers (small towers) at Y ~160-170
+        "left": [(116, 160), (110, 165), (122, 162)],
+        "right": [(302, 160), (296, 165), (308, 162)],
     },
     "big_win_con": {
         "left": [(115, 332)],
@@ -31,12 +32,14 @@ PLAY_COORDS = {
         "right": [(224, 320), (224, 334), (214, 360), (211, 381)],
     },
     "miner": {
-        "left": [(86, 156), (90, 104), (143, 113), (142, 153)],
-        "right": [(274, 152), (276, 111), (339, 111), (323, 157)],
+        # Target princess towers first (Y ~156-165), king's tower later
+        "left": [(86, 156), (142, 153), (90, 162), (95, 158)],
+        "right": [(274, 152), (323, 157), (280, 162), (310, 158)],
     },
     "goblin_barrel": {
-        "left": [(115, 161), (116, 161), (117, 161)],
-        "right": [(300, 161), (302, 161), (301, 161)],
+        # Target princess towers more precisely (Y ~161-165)
+        "left": [(115, 161), (116, 163), (117, 162)],
+        "right": [(300, 161), (302, 163), (301, 162)],
     },
     "xbow": {
         "left": [(209, 355), (202, 381)],
@@ -55,56 +58,68 @@ PLAY_COORDS = {
         "right": [(343, 463), (184, 398), (211, 473), (166, 394)],
     },
     "earthquake": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "fireball": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "freeze": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "poison": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "arrows": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "snowball": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "zap": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Focus on princess towers first (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "rocket": {
-        "left": [(127, 161)],
-        "right": [(282, 162)],
+        # Rocket should hit princess towers (Y ~161-165)
+        "left": [(127, 161), (120, 163), (133, 162)],
+        "right": [(282, 162), (275, 164), (288, 163)],
     },
     "lightning": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Lightning on princess towers (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "log": {
-        "left": [(118, 185)],
-        "right": [(295, 185)],
+        # Log targeting princess towers (Y ~175-185)
+        "left": [(118, 175), (112, 180), (124, 178)],
+        "right": [(295, 175), (289, 180), (301, 178)],
     },
     "tornado": {
         "left": [(50, 182)],
         "right": [(355, 178)],
     },
     "goblin_drill": {
-        "left": [(91, 149), (122, 183)],
-        "right": [(305, 177), (334, 154)],
+        # Target princess towers (Y ~149-165)
+        "left": [(91, 149), (88, 155), (94, 152), (85, 158)],
+        "right": [(305, 150), (308, 156), (302, 153), (311, 159)],
     },
     "graveyard": {
-        "left": [(88, 157)],
-        "right": [(325, 156)],
+        # Target princess towers (Y ~157-162)
+        "left": [(88, 157), (85, 160), (91, 159)],
+        "right": [(325, 156), (322, 159), (328, 158)],
     },
 }
 
@@ -6369,6 +6384,33 @@ def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float =
 
 
 def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time: float = 0):
+    """Calculate play coordinates for a card based on grouping, side, and time.
+    
+    Enhanced to detect threats and respond defensively when enemy units are near our towers.
+    """
+    # Detect threat levels on both sides
+    left_threat, right_threat = detect_threat_level()
+    
+    # Determine if we're under heavy threat (threshold can be tuned)
+    # Higher values mean more activity/threat on that side
+    threat_threshold = 5000  # Tunable threshold for what constitutes a "threat"
+    
+    under_threat_left = left_threat > threat_threshold
+    under_threat_right = right_threat > threat_threshold
+    
+    # If we're under threat on the preferred side and this is a card that can defend
+    # (not a spell or building), place it defensively
+    if card_grouping not in ["spell", "earthquake", "fireball", "freeze", "poison", 
+                             "arrows", "snowball", "zap", "rocket", "lightning", 
+                             "log", "tornado", "graveyard", "goblin_barrel", 
+                             "spawner", "turret", "xbow", "miner"]:
+        if (side_preference == "left" and under_threat_left) or \
+           (side_preference == "right" and under_threat_right):
+            # Use defensive placement
+            defensive_coord = get_defensive_coords(side_preference, card_grouping)
+            if defensive_coord:
+                return defensive_coord
+    
     # if there is a dedicated coordinate for this card
     if card_grouping == "No group":
         if elapsed_time < 12:  # Less than 5 seconds
@@ -6403,6 +6445,53 @@ def create_default_bridge_iar(emulator):
 
 
 bridge_pixel = [[100, 200], [275, 200]]
+
+
+def detect_threat_level():
+    """Detect threat level on each side based on bridge activity.
+    
+    Returns:
+        tuple: (left_threat, right_threat) - higher values indicate more threat
+    """
+    if battle_iar == 0:
+        return (0, 0)
+    
+    bridge_color_offset = []
+    for i, bridge in enumerate(bridge_pixel):
+        all_coords = [(y, x) for x in range(bridge[0], bridge[0] + 40) for y in range(bridge[1], bridge[1] + 175)]
+        pixel_coords = numpy.array(all_coords)
+        iar_pixels = battle_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
+        bridge_iar_pixels = bridge_iar[pixel_coords[:, 0], pixel_coords[:, 1]]
+        bridge_color_offset.append(numpy.linalg.norm(iar_pixels - bridge_iar_pixels))
+    
+    return (bridge_color_offset[0], bridge_color_offset[1])
+
+
+def get_defensive_coords(side_preference: str, card_grouping: str):
+    """Get defensive placement coordinates to counter threats near our towers.
+    
+    Args:
+        side_preference: "left" or "right" - which side to defend
+        card_grouping: Type of card being placed
+        
+    Returns:
+        tuple: (x, y) coordinates for defensive placement
+    """
+    # Defensive cards should be placed closer to our towers (higher Y values)
+    # to intercept enemy units before they reach our towers
+    
+    if card_grouping in ["spawner", "turret", "long_range", "princess"]:
+        # These are naturally defensive, use their predefined coords
+        return None
+    
+    # For troops and other cards, place defensively near the bridge on threatened side
+    # Y ~320-380: Between bridge and our towers for defensive positioning
+    if side_preference == "left":
+        # Left side defensive placement
+        return (random.randint(70, 180), random.randint(320, 380))
+    else:
+        # Right side defensive placement
+        return (random.randint(240, 350), random.randint(320, 380))
 
 
 def switch_side():
