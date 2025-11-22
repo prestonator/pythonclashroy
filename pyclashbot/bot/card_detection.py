@@ -6490,7 +6490,8 @@ def analyze_bridge_activity():
     Returns:
         list: Color offset values for left and right bridges
     """
-    if not isinstance(battle_iar, numpy.ndarray):
+    # Both battle_iar and bridge_iar must be numpy arrays for analysis
+    if not isinstance(battle_iar, numpy.ndarray) or not isinstance(bridge_iar, numpy.ndarray):
         return [0, 0]
 
     bridge_color_offset = []
