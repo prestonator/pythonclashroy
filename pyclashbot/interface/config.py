@@ -150,11 +150,7 @@ USER_CONFIG_KEYS = (
         UIField.MAX_DECK_SELECTION.value,
         UIField.CYCLE_DECKS_USER_TOGGLE.value,
     ]
-    + [  # AI/ML Model settings
-        UIField.MODEL_ENABLED_TOGGLE.value,
-        UIField.MODEL_TYPE.value,
-        UIField.ROBOFLOW_API_KEY.value,
-        UIField.ROBOFLOW_MODEL_ID.value,
+    + [  # AI/ML Model settings (for future use)
         UIField.MODEL_CONFIDENCE_THRESHOLD.value,
     ]
     + [  # Battle Strategy settings
