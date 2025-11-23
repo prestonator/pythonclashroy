@@ -59,11 +59,8 @@ class UIField(StrEnum):
     GP_WSI = "gp_wsi"
     ADB_TOGGLE = "adb_toggle"
     ADB_SERIAL = "adb_serial"
-    # AI/ML Model Settings
+    # AI/ML Model Settings (for future use)
     MODEL_ENABLED_TOGGLE = "model_enabled_toggle"
-    MODEL_TYPE = "model_type"
-    ROBOFLOW_API_KEY = "roboflow_api_key"
-    ROBOFLOW_MODEL_ID = "roboflow_model_id"
     MODEL_CONFIDENCE_THRESHOLD = "model_confidence_threshold"
     # Battle Strategy Settings
     STRATEGY_ELIXIR_MODE = "strategy_elixir_mode"

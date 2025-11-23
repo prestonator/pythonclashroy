@@ -6290,44 +6290,16 @@ def initialize_card_detector(model_config: dict | None = None):
 
     Args:
         model_config: Dictionary containing:
-            - model_enabled: bool, whether to enable model detection
-            - model_type: str, type of model (e.g., 'roboflow')
-            - roboflow_api_key: str, API key for Roboflow
-            - roboflow_model_id: str, model ID for Roboflow
+            - model_enabled: bool, whether to enable model detection (currently unused)
             - confidence_threshold: float, minimum confidence for model predictions
+
+    Note: Model integration is currently disabled. Traditional CV methods are used.
     """
     global _global_detector
 
-    if not model_config or not model_config.get("model_enabled", False):
-        _global_detector = None
-        return
-
-    try:
-        from pyclashbot.detection.hybrid_detector import create_detector_from_config  # noqa: PLC0415
-
-        # Build configuration for hybrid detector
-        detector_config = {
-            "model_type": model_config.get("model_type", "roboflow"),
-            "model_config": {
-                "api_key": model_config.get("roboflow_api_key"),
-                "model_id": model_config.get("roboflow_model_id"),
-                "confidence": model_config.get("confidence_threshold", 0.7),
-            },
-            "use_model_first": True,
-            "confidence_threshold": model_config.get("confidence_threshold", 0.7),
-        }
-
-        _global_detector = create_detector_from_config(detector_config)
-
-        # Print status to console for debugging
-        if _global_detector and _global_detector.model and _global_detector.model.is_available():
-            print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
-        else:
-            print("⚠ Card detector created but model not available")
-
-    except Exception as e:
-        print(f"Warning: Failed to initialize card detector: {e}")
-        _global_detector = None
+    # Model detection is currently disabled - using traditional CV only
+    _global_detector = None
+    return
 
 
 def get_card_detector():

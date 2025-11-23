@@ -2,7 +2,7 @@
 Enhanced detection module that combines traditional CV with ML models.
 
 This module provides a unified interface that can use both traditional
-computer vision techniques and ML models (like Roboflow) for improved
+computer vision techniques and optional ML models for improved
 detection accuracy.
 """
 
@@ -124,7 +124,7 @@ def create_detector_from_config(config: dict) -> HybridDetector:
 
     Args:
         config: Configuration dictionary with keys:
-            - model_type: 'roboflow', 'dummy', or None
+            - model_type: 'custom', 'dummy', or None (for future model integration)
             - model_config: Model-specific configuration
             - use_model_first: Whether to prioritize model detection
             - confidence_threshold: Minimum confidence for model results
@@ -135,7 +135,7 @@ def create_detector_from_config(config: dict) -> HybridDetector:
     model = None
     model_type = config.get("model_type")
 
-    if model_type:
+    if model_type and model_type != "dummy":
         model_config = config.get("model_config", {})
         try:
             model = ModelFactory.create_model(model_type, **model_config)

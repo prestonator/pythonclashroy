@@ -253,11 +253,11 @@ def wait_for_elixer(
         card_inhand = len(check_which_cards_are_available(emulator, True, False))
         action_offset, _ = switch_side()
         if action_offset > PLAY_THRESHOLD and card_inhand > 0:
-            logger.change_status("Too much going on, playing now")
+            logger.change_status(f"High activity detected (offset: {int(action_offset)}), responding defensively")
             return True
 
         if action_offset > WAIT_THRESHOLD and card_inhand == 4:
-            logger.change_status("All cards are available!")
+            logger.change_status(f"Activity detected (offset: {int(action_offset)}) with full hand!")
             return True
 
         if wait_time > ELIXER_WAIT_TIMEOUT:

@@ -2,7 +2,7 @@
 Model Interface for external AI/ML model integration.
 
 This module provides an abstraction layer for integrating external computer vision models
-(e.g., from Roboflow, YOLOv8, etc.) to enhance card and object detection in Clash Royale.
+(e.g., YOLOv8, custom models, etc.) to enhance card and object detection in Clash Royale.
 """
 
 from abc import ABC, abstractmethod
@@ -65,7 +65,7 @@ class ModelFactory:
         """Create a detection model instance.
 
         Args:
-            model_type: Type of model to create ('roboflow', 'yolo', 'dummy', etc.)
+            model_type: Type of model to create ('yolo', 'custom', 'dummy', etc.)
             **config: Model-specific configuration parameters
 
         Returns:
@@ -74,18 +74,8 @@ class ModelFactory:
         Raises:
             ValueError: If model_type is not supported
         """
-        if model_type == "roboflow":
-            try:
-                from pyclashbot.detection.roboflow_model import RoboflowModel  # noqa: PLC0415
-
-                return RoboflowModel(**config)
-            except ImportError:
-                print(
-                    "Warning: Roboflow inference not installed. "
-                    "Install with: pip install inference-sdk"
-                )
-                return DummyModel()
+        # Future model types can be added here (e.g., YOLO, custom models)
         if model_type == "dummy" or model_type is None:
             return DummyModel()
-        msg = f"Unsupported model type: {model_type}"
+        msg = f"Unsupported model type: {model_type}. Add custom model implementations here."
         raise ValueError(msg)

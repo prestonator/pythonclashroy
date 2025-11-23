@@ -99,11 +99,8 @@ class PyClashBotUI(ttk.Window):
 
         values[UIField.THEME_NAME.value] = self.theme_var.get() or self.DEFAULT_THEME
 
-        # AI/ML Model settings
-        values[UIField.MODEL_ENABLED_TOGGLE.value] = bool(self.model_enabled_var.get())
-        values[UIField.MODEL_TYPE.value] = self.model_type_var.get()
-        values[UIField.ROBOFLOW_API_KEY.value] = self.roboflow_api_key_var.get()
-        values[UIField.ROBOFLOW_MODEL_ID.value] = self.roboflow_model_id_var.get()
+        # AI/ML Model settings (currently disabled - for future use)
+        values[UIField.MODEL_ENABLED_TOGGLE.value] = False  # Disabled
         values[UIField.MODEL_CONFIDENCE_THRESHOLD.value] = self._safe_float(
             self.model_confidence_var.get(), fallback=0.7
         )
@@ -150,15 +147,7 @@ class PyClashBotUI(ttk.Window):
             if UIField.ADB_SERIAL.value in values:
                 self.adb_serial_var.set(str(values[UIField.ADB_SERIAL.value]))
 
-            # AI/ML Model settings
-            if UIField.MODEL_ENABLED_TOGGLE.value in values:
-                self.model_enabled_var.set(bool(values[UIField.MODEL_ENABLED_TOGGLE.value]))
-            if UIField.MODEL_TYPE.value in values:
-                self.model_type_var.set(str(values[UIField.MODEL_TYPE.value]))
-            if UIField.ROBOFLOW_API_KEY.value in values:
-                self.roboflow_api_key_var.set(str(values[UIField.ROBOFLOW_API_KEY.value]))
-            if UIField.ROBOFLOW_MODEL_ID.value in values:
-                self.roboflow_model_id_var.set(str(values[UIField.ROBOFLOW_MODEL_ID.value]))
+            # AI/ML Model settings (disabled - for future use)
             if UIField.MODEL_CONFIDENCE_THRESHOLD.value in values:
                 self.model_confidence_var.set(str(values[UIField.MODEL_CONFIDENCE_THRESHOLD.value]))
 
@@ -241,26 +230,6 @@ class PyClashBotUI(ttk.Window):
 
     def set_status(self, text: str) -> None:
         self._status_text = text
-
-    def set_model_connection_status(self, connected: bool, model_type: str = "", in_use: bool = False) -> None:
-        """Update the model connection status display in the GUI.
-
-        Args:
-            connected: Whether the model is connected and available
-            model_type: Type of model (e.g., 'roboflow')
-            in_use: Whether the model is actively being used
-        """
-        if not hasattr(self, 'model_connection_status_label'):
-            return
-
-        if connected and in_use:
-            status_text = f"🟢 {model_type.capitalize()} model connected and active"
-            self.model_connection_status_label.configure(text=status_text, foreground="green")
-        elif connected:
-            status_text = f"🟡 {model_type.capitalize()} model connected (not in use)"
-            self.model_connection_status_label.configure(text=status_text, foreground="orange")
-        else:
-            self.model_connection_status_label.configure(text="", foreground="")
 
     def update_stats(self, stats: dict[str, object] | None) -> None:
         if not stats:
@@ -835,76 +804,25 @@ class PyClashBotUI(ttk.Window):
         )
         self.open_logs_btn.pack(fill="x", pady=(6, 0))
 
-        # AI/ML Model Settings
+        # AI/ML Model Settings (Placeholder for future integration)
         ttk.Separator(self.misc_tab, orient="horizontal").pack(fill="x", padx=10, pady=(6, 0))
-        model_frame = ttk.Labelframe(self.misc_tab, text="AI/ML Model Settings (Optional)", padding=10)
+        model_frame = ttk.Labelframe(self.misc_tab, text="AI/ML Model Settings (Future Feature)", padding=10)
         model_frame.pack(fill="x", padx=10, pady=10)
 
-        # Model enabled toggle
-        self.model_enabled_var = ttk.BooleanVar(value=False)
-        model_enabled_checkbox = ttk.Checkbutton(
+        # Info label about traditional CV
+        info_label = ttk.Label(
             model_frame,
-            text="Enable ML Model Detection",
-            variable=self.model_enabled_var,
-            bootstyle="round-toggle",
-            command=self._on_model_enabled_changed,
+            text="The bot uses advanced traditional computer vision for card detection.\n"
+                 "ML model integration is planned for future releases.",
+            wraplength=400,
+            justify="left"
         )
-        model_enabled_checkbox.pack(anchor="w", pady=(0, 8))
-        self._trace_variable(self.model_enabled_var)
-        self._register_config_widget(UIField.MODEL_ENABLED_TOGGLE.value, model_enabled_checkbox)
+        info_label.pack(anchor="w", pady=(0, 8))
 
-        # Model type selection
-        model_type_frame = ttk.Frame(model_frame)
-        model_type_frame.pack(fill="x", pady=(0, 8))
-        ttk.Label(model_type_frame, text="Model Type:").pack(side=LEFT, padx=(0, 8))
-        self.model_type_var = ttk.StringVar(value="roboflow")
-        model_type_combo = ttk.Combobox(
-            model_type_frame,
-            values=["roboflow"],
-            width=15,
-            state=READONLY,
-            textvariable=self.model_type_var,
-        )
-        model_type_combo.pack(side=LEFT)
-        self._trace_variable(self.model_type_var)
-        self._register_config_widget(UIField.MODEL_TYPE.value, model_type_combo)
-        ToolTip(model_type_combo, "Select the ML model provider")
-
-        # Roboflow API Key
-        api_key_frame = ttk.Frame(model_frame)
-        api_key_frame.pack(fill="x", pady=(0, 8))
-        ttk.Label(api_key_frame, text="Roboflow API Key:").pack(anchor="w")
-        self.roboflow_api_key_var = ttk.StringVar(value="")
-        api_key_entry = ttk.Entry(
-            api_key_frame,
-            textvariable=self.roboflow_api_key_var,
-            width=40,
-            show="*",
-        )
-        api_key_entry.pack(fill="x", pady=(4, 0))
-        self._trace_variable(self.roboflow_api_key_var)
-        self._register_config_widget(UIField.ROBOFLOW_API_KEY.value, api_key_entry)
-        ToolTip(api_key_entry, "Your Roboflow API key (can also use ROBOFLOW_API_KEY env var)")
-
-        # Roboflow Model ID
-        model_id_frame = ttk.Frame(model_frame)
-        model_id_frame.pack(fill="x", pady=(0, 8))
-        ttk.Label(model_id_frame, text="Roboflow Model ID:").pack(anchor="w")
-        self.roboflow_model_id_var = ttk.StringVar(value="")
-        model_id_entry = ttk.Entry(
-            model_id_frame,
-            textvariable=self.roboflow_model_id_var,
-            width=40,
-        )
-        model_id_entry.pack(fill="x", pady=(4, 0))
-        self._trace_variable(self.roboflow_model_id_var)
-        self._register_config_widget(UIField.ROBOFLOW_MODEL_ID.value, model_id_entry)
-        ToolTip(model_id_entry, "Format: project-name/version (e.g., clash-royale-cards/1)")
-
-        # Confidence threshold
+        # Confidence threshold (kept for future use)
         confidence_frame = ttk.Frame(model_frame)
         confidence_frame.pack(fill="x", pady=(0, 8))
-        ttk.Label(confidence_frame, text="Confidence Threshold:").pack(side=LEFT, padx=(0, 8))
+        ttk.Label(confidence_frame, text="Detection Confidence (Reserved):").pack(side=LEFT, padx=(0, 8))
         self.model_confidence_var = ttk.StringVar(value="0.7")
         confidence_spin = ttk.Spinbox(
             confidence_frame,
@@ -913,51 +831,12 @@ class PyClashBotUI(ttk.Window):
             increment=0.05,
             width=8,
             textvariable=self.model_confidence_var,
+            state=DISABLED,
         )
         confidence_spin.pack(side=LEFT)
         self._trace_variable(self.model_confidence_var)
         self._register_config_widget(UIField.MODEL_CONFIDENCE_THRESHOLD.value, confidence_spin)
-        ToolTip(confidence_spin, "Minimum confidence (0.0-1.0) to use model predictions")
-
-        # Test Connection button and status
-        test_frame = ttk.Frame(model_frame)
-        test_frame.pack(fill="x", pady=(8, 0))
-        self.test_model_btn = ttk.Button(
-            test_frame,
-            text="Test Connection",
-            command=self._on_test_model_connection,
-            bootstyle="info-outline",
-        )
-        self.test_model_btn.pack(side=LEFT, padx=(0, 8))
-        self._register_config_widget("test_model_button", self.test_model_btn)
-
-        self.model_status_label = ttk.Label(
-            test_frame,
-            text="",
-            font=("TkDefaultFont", 9),
-        )
-        self.model_status_label.pack(side=LEFT)
-
-        # Info label
-        info_label = ttk.Label(
-            model_frame,
-            text="Info: Install inference-sdk with: pip install inference-sdk\n"
-            "See pyclashbot/detection/README_MODELS.md for setup guide",
-            bootstyle="info",
-            font=("TkDefaultFont", 8),
-        )
-        info_label.pack(anchor="w", pady=(8, 0))
-
-        # Model connection status (displayed when model is active)
-        self.model_connection_status_label = ttk.Label(
-            model_frame,
-            text="",
-            font=("TkDefaultFont", 9, "bold"),
-        )
-        self.model_connection_status_label.pack(anchor="w", pady=(8, 0))
-
-        # Initialize model settings as disabled
-        self._on_model_enabled_changed()
+        ToolTip(confidence_spin, "Reserved for future ML model integration")
 
         ttk.Separator(self.misc_tab, orient="horizontal").pack(fill="x", padx=10, pady=(6, 0))
         display_frame = ttk.Labelframe(self.misc_tab, text="Display Settings", padding=10)
@@ -1134,90 +1013,6 @@ class PyClashBotUI(ttk.Window):
     def _on_open_logs_clicked(self) -> None:
         if self._open_logs_callback:
             self._open_logs_callback()
-
-    def _on_model_enabled_changed(self) -> None:
-        """Handle model enabled toggle change."""
-        enabled = self.model_enabled_var.get()
-        state = tk.NORMAL if enabled else tk.DISABLED
-
-        # Enable/disable model configuration widgets
-        for key in [
-            UIField.MODEL_TYPE.value,
-            UIField.ROBOFLOW_API_KEY.value,
-            UIField.ROBOFLOW_MODEL_ID.value,
-            UIField.MODEL_CONFIDENCE_THRESHOLD.value,
-            "test_model_button",
-        ]:
-            widget = self._config_widgets.get(key)
-            if widget:
-                try:
-                    if isinstance(widget, ttk.Combobox):
-                        widget.configure(state=READONLY if enabled else tk.DISABLED)
-                    elif isinstance(widget, ttk.Spinbox):
-                        widget.configure(state=READONLY if enabled else tk.DISABLED)
-                    else:
-                        widget.configure(state=state)
-                except tk.TclError:
-                    continue
-
-        # Clear status label when disabled
-        if not enabled and hasattr(self, "model_status_label"):
-            self.model_status_label.configure(text="")
-
-        self._notify_config_change()
-
-    def _on_test_model_connection(self) -> None:
-        """Test connection to Roboflow model."""
-        api_key = self.roboflow_api_key_var.get()
-        model_id = self.roboflow_model_id_var.get()
-
-        if not api_key or not model_id:
-            self.model_status_label.configure(text="❌ Please enter API key and Model ID", foreground="red")
-            self.set_model_connection_status(False)
-            return
-
-        self.model_status_label.configure(text="⏳ Testing connection...", foreground="gray")
-        self.test_model_btn.configure(state=tk.DISABLED)
-        self.update_idletasks()
-
-        try:
-            from pyclashbot.detection.roboflow_model import RoboflowModel  # noqa: PLC0415
-
-            # Create a test model instance
-            test_model = RoboflowModel(api_key=api_key, model_id=model_id)
-
-            if not test_model.is_available():
-                self.model_status_label.configure(
-                    text="❌ Connection failed - check API key/model ID", foreground="red"
-                )
-                self.set_model_connection_status(False)
-                return
-
-            # Try a simple test inference with a dummy image
-            import numpy as np  # noqa: PLC0415
-
-            test_image = np.zeros((100, 100, 3), dtype=np.uint8)
-            test_model.predict(test_image)
-
-            # Connection successful (even if no predictions, it means API works)
-            self.model_status_label.configure(text="✓ Connection successful!", foreground="green")
-            # Update persistent status
-            model_enabled = self.model_enabled_var.get()
-            self.set_model_connection_status(True, "roboflow", model_enabled)
-
-        except ImportError:
-            self.model_status_label.configure(
-                text="❌ inference-sdk not installed. Run: pip install inference-sdk", foreground="red"
-            )
-            self.set_model_connection_status(False)
-        except Exception as e:
-            error_msg = str(e)
-            if len(error_msg) > 50:
-                error_msg = error_msg[:50] + "..."
-            self.model_status_label.configure(text=f"❌ Error: {error_msg}", foreground="red")
-            self.set_model_connection_status(False)
-        finally:
-            self.test_model_btn.configure(state=tk.NORMAL)
 
     @staticmethod
     def _safe_int(value: object, fallback: int = 0) -> int:

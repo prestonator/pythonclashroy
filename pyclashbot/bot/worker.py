@@ -49,29 +49,15 @@ class WorkerThread(PausableThread):
         from pyclashbot.bot.card_detection import initialize_card_detector  # noqa: PLC0415
         from pyclashbot.interface.enums import UIField  # noqa: PLC0415
 
+        # Model detection is currently disabled (Roboflow removed)
+        # Traditional CV methods are used for card detection
         model_config = {
-            'model_enabled': jobs.get(UIField.MODEL_ENABLED_TOGGLE.value, False),
-            'model_type': jobs.get(UIField.MODEL_TYPE.value, 'roboflow'),
-            'roboflow_api_key': jobs.get(UIField.ROBOFLOW_API_KEY.value),
-            'roboflow_model_id': jobs.get(UIField.ROBOFLOW_MODEL_ID.value),
+            'model_enabled': False,  # Disabled - using traditional CV only
             'confidence_threshold': jobs.get(UIField.MODEL_CONFIDENCE_THRESHOLD.value, 0.7),
         }
 
         initialize_card_detector(model_config)
-        if model_config.get('model_enabled'):
-            model_type = model_config.get('model_type', 'unknown')
-            self.logger.log(f"✓ Roboflow connection initialized: Using {model_type} model")
-            self.logger.log(f"  Model ID: {model_config.get('roboflow_model_id', 'not specified')}")
-            self.logger.log(f"  Confidence threshold: {model_config.get('confidence_threshold', 0.7)}")
-            # Check if model is actually available
-            from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
-            detector = get_card_detector()
-            if detector and detector.model and detector.model.is_available():
-                self.logger.log(f"✓ {model_type.capitalize()} model is active and will be used in battles")
-            else:
-                self.logger.log(f"⚠ {model_type.capitalize()} model configuration found but model not available")
-        else:
-            self.logger.log("Model detection disabled - using traditional CV methods only")
+        self.logger.log("Card detection initialized - using traditional CV methods")
 
         state = "start"
         state_history = StateHistory(self.logger)
