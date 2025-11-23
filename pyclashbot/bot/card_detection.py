@@ -6437,7 +6437,7 @@ def _draw_detection_bbox(image, bbox, label, confidence, offset=(0, 0)):
         
         # Draw label text
         cv2.putText(image, label_text, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-    except Exception as e:
+    except Exception:
         # Silently fail if drawing fails - this is just for debugging
         pass
 
@@ -6487,39 +6487,10 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
     # Returns (0, 0) if battle_iar not yet initialized, which is safe
     left_threat, right_threat = detect_threat_level()
 
-    # Use global detector if none provided for enhanced detection
-    if detector is None:
-        detector = get_card_detector()
-
-    # Enhanced threat detection with Roboflow model (if available)
-    # This provides more accurate threat information including king tower health
-    tower_threats = None
-    if detector and detector.model and detector.model.is_available():
-        # Import here to avoid circular dependency
-        from pyclashbot.emulators import get_current_emulator  # noqa: PLC0415
-        try:
-            emulator = get_current_emulator()
-            if emulator:
-                # This will be implemented in the emulator context
-                # For now, we'll skip this to avoid errors
-                pass
-        except Exception:
-            pass
-
     # Determine if we're under heavy threat
     # Higher values mean more activity/threat on that side
     under_threat_left = left_threat > THREAT_DETECTION_THRESHOLD
     under_threat_right = right_threat > THREAT_DETECTION_THRESHOLD
-
-    # Enhanced defensive logic for king tower protection
-    # If king tower is under threat, prioritize defense regardless of side
-    if tower_threats and tower_threats.get('king_tower_threat'):
-        if card_grouping not in NON_DEFENSIVE_CARD_TYPES:
-            # Place defensively near king tower
-            return (
-                random.randint(180, 235),  # Center area near king tower
-                random.randint(400, 450),
-            )
 
     # If we're under threat on the preferred side and this is a card that can defend
     # (not a spell or building), place it defensively
@@ -6665,6 +6636,10 @@ def detect_tower_threats(emulator, detector=None):
             'threats': list[dict],         # List of detected threats with positions
         }
     """
+    # Threat thresholds
+    THREAT_COUNT_LOW = 1
+    THREAT_COUNT_MEDIUM = 3
+    
     result = {
         'king_tower_threat': False,
         'left_tower_threat': False,
@@ -6730,17 +6705,18 @@ def detect_tower_threats(emulator, detector=None):
                     # Near right princess tower
                     result['right_tower_threat'] = True
         
-        # TODO: Implement actual tower health detection
-        # For now, infer based on threat level
-        if len(result['threats']) > 3:
+        # Infer tower health based on threat level
+        threat_count = len(result['threats'])
+        if threat_count > THREAT_COUNT_MEDIUM:
             result['king_tower_health'] = 'low'
-        elif len(result['threats']) > 1:
+        elif threat_count > THREAT_COUNT_LOW:
             result['king_tower_health'] = 'medium'
         else:
             result['king_tower_health'] = 'high'
             
-    except Exception as e:
+    except Exception:
         # Silently handle errors - this is an enhancement feature
+        # If detection fails, return safe defaults (no threats detected)
         pass
     
     return result

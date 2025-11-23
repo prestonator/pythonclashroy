@@ -83,6 +83,7 @@ class RoboflowModel(DetectionModel):
                     "confidence": float,   # Detection confidence (0-1)
                     "bbox": [x, y, w, h], # Bounding box [x, y, width, height]
                     "center": (x, y),     # Center coordinates
+                    "raw": dict,          # Raw prediction from Roboflow API (optional)
                 }
         """
         if not self.is_available():
