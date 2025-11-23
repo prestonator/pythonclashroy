@@ -35,6 +35,10 @@ START_BATTLE_BUTTON = (203, 487)
 QUICKMATCH_BUTTON_2V2 = (280, 350)
 CLOSE_THIS_CHALLENGE_PAGE_BUTTON = (27, 22)
 
+# Friend battle coordinates
+FRIENDS_LIST_ICON = (35, 68)  # Top left icon on main menu
+FRIENDLY_BATTLE_BUTTON = (280, 450)  # "Friendly Battle" button in friends list popup (to the right of Cancel)
+
 # coords of the cards in the hand
 HAND_CARDS_COORDS = [
     (142, 561),
@@ -154,6 +158,49 @@ def do_2v2_fight_state(
     )
 
 
+def wait_for_friend_battle_challenge(emulator, logger: Logger) -> bool:
+    """Wait for a friend battle challenge and accept it.
+    
+    This function opens the friends list and waits indefinitely for a challenge.
+    
+    Args:
+        emulator: The emulator controller
+        logger: Logger instance
+        
+    Returns:
+        bool: True if challenge accepted, False if failed to open friends list
+    """
+    logger.change_status("Opening friends list to wait for challenge")
+    
+    # Check if on clash main menu
+    if not check_if_on_clash_main_menu(emulator):
+        logger.change_status("Not on clash main menu, cannot open friends list")
+        return False
+    
+    # Click friends list icon in top left
+    emulator.click(FRIENDS_LIST_ICON[0], FRIENDS_LIST_ICON[1])
+    logger.log(f"Clicked friends list icon at {FRIENDS_LIST_ICON}")
+    time.sleep(2)  # Wait for friends list to open
+    
+    # Wait indefinitely for a challenge
+    logger.change_status("Waiting for friend battle challenge (no timeout)...")
+    
+    # Keep checking and clicking the "Friendly Battle" button
+    # The button appears when a challenge is received
+    while True:
+        time.sleep(2)  # Check every 2 seconds
+        
+        # Click the "Friendly Battle" button (to the right of Cancel)
+        emulator.click(FRIENDLY_BATTLE_BUTTON[0], FRIENDLY_BATTLE_BUTTON[1])
+        logger.log(f"Attempting to accept challenge by clicking at {FRIENDLY_BATTLE_BUTTON}")
+        
+        # Check if battle started
+        time.sleep(1)
+        if check_for_in_battle_with_delay(emulator):
+            logger.change_status("Successfully accepted friend battle challenge!")
+            return True
+
+
 def start_fight(emulator, logger, mode) -> bool:
     """Start a fight with the specified mode.
 
@@ -183,7 +230,12 @@ def start_fight(emulator, logger, mode) -> bool:
         logger.change_status("Not on clash main menu, cannot start fight")
         return False
 
-    # For all modes (1v1 and 2v2), use the same start button
+    # Friend 1v1 battles work differently - wait for challenge from friends list
+    if mode == "Friend 1v1":
+        logger.change_status("Friend 1v1 mode - waiting for challenge from friend")
+        return wait_for_friend_battle_challenge(emulator, logger)
+
+    # For all other modes (Classic 1v1, Classic 2v2, Trophy Road), use the standard start button
     # Mode is already set by select_mode() in states.py, just click start button
     emulator.click(START_BATTLE_BUTTON[0], START_BATTLE_BUTTON[1])
     logger.log(f"Clicked Start button at {START_BATTLE_BUTTON}")

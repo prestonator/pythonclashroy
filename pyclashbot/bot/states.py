@@ -392,23 +392,33 @@ def state_tree(
             selected_mode = battle_mode_state.get_next_fight_mode(job_list)
             logger.log(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
             battle_mode_state.mode_used_in_1v1 = selected_mode
-            if select_mode(emulator, selected_mode) is False:
-                return handle_state_failure(
-                    logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
-                )
-        else:
-            # if only one mode is selected, check if it's already selected
-            selected_mode = enabled_modes[0]
-            battle_mode_state.mode_used_in_1v1 = selected_mode
-            logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
-            if not check_if_battle_mode_is_selected(emulator, selected_mode):
-                logger.log(f"{selected_mode} is not selected. Selecting it now.")
+            
+            # Friend 1v1 doesn't use the normal mode selection UI
+            if selected_mode != "Friend 1v1":
                 if select_mode(emulator, selected_mode) is False:
                     return handle_state_failure(
                         logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
                     )
             else:
-                logger.log(f"{selected_mode} is already selected.")
+                logger.log("Friend 1v1 selected - skipping mode selection UI")
+        else:
+            # if only one mode is selected, check if it's already selected
+            selected_mode = enabled_modes[0]
+            battle_mode_state.mode_used_in_1v1 = selected_mode
+            
+            # Friend 1v1 doesn't use the normal mode selection UI
+            if selected_mode == "Friend 1v1":
+                logger.log("Friend 1v1 mode enabled - skipping mode selection UI")
+            else:
+                logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
+                if not check_if_battle_mode_is_selected(emulator, selected_mode):
+                    logger.log(f"{selected_mode} is not selected. Selecting it now.")
+                    if select_mode(emulator, selected_mode) is False:
+                        return handle_state_failure(
+                            logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
+                        )
+                else:
+                    logger.log(f"{selected_mode} is already selected.")
 
         return state_order.next_state(state)
 
