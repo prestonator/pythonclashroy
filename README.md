@@ -35,14 +35,7 @@ _Join our [Discord server](https://discord.gg/nqKRkyq2UU) for support, updates, 
 - **Render Mode Selection** - Choose between OpenGL, DirectX, and Vulkan rendering
 - **Real-time Statistics** - Track wins, losses, chests opened, and more
 - **Performance Monitoring** - Monitor bot runtime, failures, and account switches
-
-### 🤖 **AI/ML Model Integration** (Optional Enhancement)
-
-- **Roboflow Integration** - Enhance card detection with custom ML models from Roboflow
-- **Lightweight & Optional** - Works perfectly without models; models provide enhanced accuracy
-- **Flexible Strategy** - Use models for better detection or stick with traditional computer vision
-- **Easy Configuration** - Simple setup with API keys and model IDs
-- **[Learn More](pyclashbot/detection/README_MODELS.md)** - See documentation for setup and examples
+- **Traditional Computer Vision** - Uses advanced image recognition for reliable card detection
 
 ## 🚀 Setup Instructions
 
