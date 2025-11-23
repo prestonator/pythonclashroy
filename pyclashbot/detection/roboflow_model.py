@@ -77,7 +77,13 @@ class RoboflowModel(DetectionModel):
             **kwargs: Additional inference parameters (not used - configuration is set during initialization)
 
         Returns:
-            list[dict]: List of detection results
+            list[dict]: List of detection results with format:
+                {
+                    "class": str,          # Card/object name
+                    "confidence": float,   # Detection confidence (0-1)
+                    "bbox": [x, y, w, h], # Bounding box [x, y, width, height]
+                    "center": (x, y),     # Center coordinates
+                }
         """
         if not self.is_available():
             return []
@@ -111,6 +117,8 @@ class RoboflowModel(DetectionModel):
                                 pred.get("height", 0),
                             ],
                             "center": (pred.get("x", 0), pred.get("y", 0)),
+                            # Store raw prediction for advanced use cases
+                            "raw": pred,
                         }
                     )
 
@@ -119,6 +127,47 @@ class RoboflowModel(DetectionModel):
         except Exception as e:
             print(f"Warning: Roboflow inference failed: {e}")
             return []
+    
+    def detect_battlefield_objects(self, image: Any, region: tuple[int, int, int, int] | None = None) -> list[dict[str, Any]]:
+        """Detect objects on the battlefield (towers, troops, etc.).
+        
+        This is useful for detecting enemy units, tower health, and battlefield state
+        to make better strategic decisions.
+        
+        Args:
+            image: Full battlefield screenshot as numpy array
+            region: Optional (x1, y1, x2, y2) region to analyze, None for full image
+            
+        Returns:
+            list[dict]: List of detected objects with their positions and classifications
+        """
+        if not self.is_available():
+            return []
+        
+        # Extract region if specified
+        if region and isinstance(image, np.ndarray):
+            x1, y1, x2, y2 = region
+            image = image[y1:y2, x1:x2]
+            offset = (x1, y1)
+        else:
+            offset = (0, 0)
+        
+        # Run detection
+        predictions = self.predict(image)
+        
+        # Adjust bounding boxes if we analyzed a sub-region
+        if offset != (0, 0):
+            for pred in predictions:
+                if "bbox" in pred:
+                    pred["bbox"][0] += offset[0]
+                    pred["bbox"][1] += offset[1]
+                if "center" in pred:
+                    pred["center"] = (
+                        pred["center"][0] + offset[0],
+                        pred["center"][1] + offset[1]
+                    )
+        
+        return predictions
 
     def is_available(self) -> bool:
         """Check if Roboflow model is available.
