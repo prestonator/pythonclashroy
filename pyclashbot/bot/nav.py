@@ -537,7 +537,7 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
     Returns:
         True if the mode is selected, False otherwise.
     """
-    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road", "Friend 1v1"]
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
@@ -548,6 +548,7 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
         "Classic 1v1": "selected_1v1_on_main",
         "Classic 2v2": "selected_2v2_on_main",
         "Trophy Road": "selected_trophy_road_on_main",
+        "Friend 1v1": "selected_1v1_on_main",  # Friend battles use same detection as Classic 1v1
     }
 
     look_folder = mode2folder[mode]
@@ -570,7 +571,7 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
 
 
 def find_fight_mode_icon(emulator, mode: str):
-    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road", "Friend 1v1"]
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
@@ -581,6 +582,7 @@ def find_fight_mode_icon(emulator, mode: str):
         "Classic 1v1": "fight_mode_1v1",
         "Classic 2v2": "fight_mode_2v2",
         "Trophy Road": "fight_mode_trophy_road",
+        "Friend 1v1": "fight_mode_1v1",  # Friend battles use same icon as Classic 1v1
     }
 
     look_folder = mode2folder[mode]
@@ -605,7 +607,7 @@ def find_fight_mode_icon(emulator, mode: str):
 
 def select_mode(emulator, mode: str):
     # Check if the mode is valid
-    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road", "Friend 1v1"]
     if type(mode) is not str:
         logging.warning(f'Warning: Mode "{mode}" is not a string. Expected a string.')
         return False

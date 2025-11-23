@@ -116,7 +116,7 @@ def do_fight_state(
 
     # Only log the fight if not called from the start
     if not called_from_launching:
-        if fight_mode_choosed in ["Classic 1v1", "Trophy Road"]:
+        if fight_mode_choosed in ["Classic 1v1", "Trophy Road", "Friend 1v1"]:
             logger.add_1v1_fight()
         elif fight_mode_choosed == "Classic 2v2":
             logger.increment_2v2_fights()
@@ -127,6 +127,8 @@ def do_fight_state(
             logger.increment_classic_1v1_fights()
         elif fight_mode_choosed == "Classic 2v2":
             logger.increment_classic_2v2_fights()
+        elif fight_mode_choosed == "Friend 1v1":
+            logger.increment_classic_1v1_fights()  # Use classic 1v1 counter for friend battles
 
     time.sleep(10)
     return True
@@ -158,7 +160,7 @@ def start_fight(emulator, logger, mode) -> bool:
     Args:
         emulator: The emulator controller
         logger: Logger instance
-        mode: Fight mode - must be one of "Classic 1v1", "Classic 2v2", or "Trophy Road"
+        mode: Fight mode - must be one of "Classic 1v1", "Classic 2v2", "Trophy Road", or "Friend 1v1"
 
     Returns:
         bool: True if fight started successfully, False otherwise
@@ -166,7 +168,7 @@ def start_fight(emulator, logger, mode) -> bool:
     # Validate mode parameter
     logger.log(f'Input mode type: "{type(mode)}"')
     logger.log(f"Input mode value: {mode}")
-    valid_modes = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    valid_modes = ["Classic 1v1", "Classic 2v2", "Trophy Road", "Friend 1v1"]
     logger.log(f"Valid modes: {valid_modes}")
     if mode not in valid_modes:
         logger.log(f"The valid modes for start_fight() are: {valid_modes}")

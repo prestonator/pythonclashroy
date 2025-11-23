@@ -65,6 +65,8 @@ class BattleModeState:
             enabled_modes.append("Classic 2v2")
         if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
             enabled_modes.append("Trophy Road")
+        if job_list.get(UIField.FRIEND_1V1_USER_TOGGLE, False):
+            enabled_modes.append("Friend 1v1")
 
         if not enabled_modes:
             return None
@@ -92,6 +94,8 @@ def get_next_fight_mode(job_list):
         enabled_modes.append("Classic 2v2")
     if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
         enabled_modes.append("Trophy Road")
+    if job_list.get(UIField.FRIEND_1V1_USER_TOGGLE, False):
+        enabled_modes.append("Friend 1v1")
 
     if not enabled_modes:
         return None
@@ -376,6 +380,8 @@ def state_tree(
             enabled_modes.append("Classic 2v2")
         if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
             enabled_modes.append("Trophy Road")
+        if job_list.get(UIField.FRIEND_1V1_USER_TOGGLE, False):
+            enabled_modes.append("Friend 1v1")
 
         if not enabled_modes:
             logger.log("No fight modes are enabled. Skipping this state")
@@ -419,8 +425,8 @@ def state_tree(
         return state_order.next_state(state)
 
     if state == "1v1_fight":
-        # Check if the current mode is a 1v1 type (Classic 1v1 or Trophy Road)
-        if battle_mode_state.mode_used_in_1v1 not in ["Classic 1v1", "Trophy Road"]:
+        # Check if the current mode is a 1v1 type (Classic 1v1, Trophy Road, or Friend 1v1)
+        if battle_mode_state.mode_used_in_1v1 not in ["Classic 1v1", "Trophy Road", "Friend 1v1"]:
             logger.log(f"Current mode '{battle_mode_state.mode_used_in_1v1}' is not a 1v1 type. Skipping this state")
             return state_order.next_state(state)
 
