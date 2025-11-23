@@ -813,30 +813,15 @@ class PyClashBotUI(ttk.Window):
         info_label = ttk.Label(
             model_frame,
             text="The bot uses advanced traditional computer vision for card detection.\n"
-                 "ML model integration is planned for future releases.",
+                 "ML model integration is planned for future releases.\n\n"
+                 "The current detection method is fast, reliable, and requires no additional setup.",
             wraplength=400,
             justify="left"
         )
         info_label.pack(anchor="w", pady=(0, 8))
 
-        # Confidence threshold (kept for future use)
-        confidence_frame = ttk.Frame(model_frame)
-        confidence_frame.pack(fill="x", pady=(0, 8))
-        ttk.Label(confidence_frame, text="Detection Confidence (Reserved):").pack(side=LEFT, padx=(0, 8))
+        # Keep confidence var for compatibility but don't show in UI
         self.model_confidence_var = ttk.StringVar(value="0.7")
-        confidence_spin = ttk.Spinbox(
-            confidence_frame,
-            from_=0.0,
-            to=1.0,
-            increment=0.05,
-            width=8,
-            textvariable=self.model_confidence_var,
-            state=DISABLED,
-        )
-        confidence_spin.pack(side=LEFT)
-        self._trace_variable(self.model_confidence_var)
-        self._register_config_widget(UIField.MODEL_CONFIDENCE_THRESHOLD.value, confidence_spin)
-        ToolTip(confidence_spin, "Reserved for future ML model integration")
 
         ttk.Separator(self.misc_tab, orient="horizontal").pack(fill="x", padx=10, pady=(6, 0))
         display_frame = ttk.Labelframe(self.misc_tab, text="Display Settings", padding=10)
