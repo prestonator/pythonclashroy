@@ -8,6 +8,7 @@ from typing import Literal
 from pyclashbot.bot.card_detection import (
     check_which_cards_are_available,
     create_default_bridge_iar,
+    detect_tower_threats,
     get_play_coords_for_card,
     switch_side,
 )
@@ -546,9 +547,18 @@ def play_a_card(emulator, logger, recording_flag: bool, battle_strategy: "Battle
         last_three_cards.append(card_index)
     logger.change_status(f"Choosing this card index: {card_index}")
 
-    # get a coord based on the selected side
+    # Get threat status from battle strategy for intelligent placement
+    threat_status = battle_strategy.get_threat_status() if battle_strategy else None
+
+    # get a coord based on the selected side and threat status
     play_coord_calculation_start_time = time.time()
-    card_id, play_coord = get_play_coords_for_card(emulator, logger, card_index, battle_strategy.get_elapsed_time())
+    card_id, play_coord = get_play_coords_for_card(
+        emulator,
+        logger,
+        card_index,
+        battle_strategy.get_elapsed_time(),
+        threat_status=threat_status
+    )
     play_coord_calculation_time_taken = str(
         time.time() - play_coord_calculation_start_time,
     )[:3]
@@ -656,6 +666,8 @@ class BattleStrategy:
         push_mode: str = "Adaptive",
         aggression_level: str = "Moderate",
         logger: Logger | None = None,
+        emulator=None,
+        detector=None,
     ):
         """Initialize battle strategy with configurable parameters.
 
@@ -664,10 +676,14 @@ class BattleStrategy:
             push_mode: Push strategy (Single Lane, Dual Lane, Counter Push, Adaptive)
             aggression_level: Overall aggression (Defensive, Moderate, Aggressive, Very Aggressive)
             logger: Logger instance for strategy logging
+            emulator: Emulator instance for threat detection
+            detector: Optional card detector for enhanced threat detection
         """
         self.start_time = None
         self.elixir_amounts = [3, 4, 5, 6, 7, 8, 9]
         self.logger = logger
+        self.emulator = emulator
+        self.detector = detector
 
         # Strategy configuration
         self.elixir_mode = elixir_mode if elixir_mode in self.ELIXIR_STRATEGIES else "Adaptive"
@@ -686,6 +702,17 @@ class BattleStrategy:
         self.current_push_lane = "left"  # or "right"
         self.cards_played_this_push = 0
         self.push_switch_threshold = 3  # Switch lanes after this many cards
+
+        # Threat tracking state
+        self.current_threats = {
+            'king_tower_threat': False,
+            'left_tower_threat': False,
+            'right_tower_threat': False,
+            'king_tower_health': 'unknown',
+            'threats': [],
+        }
+        self.last_threat_check_time = 0
+        self.threat_check_interval = 2.0  # Check threats every 2 seconds
 
         # Log strategy configuration
         if self.logger:
@@ -747,12 +774,89 @@ class BattleStrategy:
 
         return thresholds
 
+    def update_threat_status(self):
+        """Update threat status by detecting threats to our towers.
+
+        This method should be called periodically during battle to keep
+        threat information current. Uses rate limiting to avoid excessive calls.
+        """
+        current_time = time.time()
+
+        # Rate limit threat checks to avoid performance impact
+        if current_time - self.last_threat_check_time < self.threat_check_interval:
+            return
+
+        self.last_threat_check_time = current_time
+
+        # Only detect threats if we have an emulator instance
+        if self.emulator:
+            try:
+                self.current_threats = detect_tower_threats(self.emulator, self.detector)
+
+                if self.logger and self.current_threats['threats']:
+                    threat_count = len(self.current_threats['threats'])
+                    self.logger.log(
+                        f"Threat update: {threat_count} threats detected - "
+                        f"Left: {self.current_threats['left_tower_threat']}, "
+                        f"Right: {self.current_threats['right_tower_threat']}, "
+                        f"King: {self.current_threats['king_tower_threat']}"
+                    )
+            except Exception as e:
+                if self.logger:
+                    self.logger.log(f"Threat detection failed: {e}")
+                # Keep previous threat state on failure
+
+    def get_threat_status(self):
+        """Get current threat status.
+
+        Returns:
+            dict: Current threat information
+        """
+        return self.current_threats
+
+    def get_most_threatened_lane(self) -> str | None:
+        """Determine which lane is most threatened.
+
+        Returns:
+            str: "left", "right", or None if no specific threat
+        """
+        if self.current_threats['left_tower_threat'] and not self.current_threats['right_tower_threat']:
+            return "left"
+        elif self.current_threats['right_tower_threat'] and not self.current_threats['left_tower_threat']:
+            return "right"
+        elif self.current_threats['left_tower_threat'] and self.current_threats['right_tower_threat']:
+            # Both threatened, prioritize based on threat count per side
+            left_threats = sum(1 for t in self.current_threats['threats'] if t['position'][0] < 180)
+            right_threats = sum(1 for t in self.current_threats['threats'] if t['position'][0] > 235)
+            return "left" if left_threats > right_threats else "right"
+        return None
+
+    def get_least_threatened_lane(self) -> str:
+        """Determine which lane has fewer threats (safer to push).
+
+        Returns:
+            str: "left" or "right"
+        """
+        most_threatened = self.get_most_threatened_lane()
+        if most_threatened == "left":
+            return "right"
+        elif most_threatened == "right":
+            return "left"
+        # No specific threat, return current preference
+        return self.current_push_lane
+
     def should_switch_lane(self) -> bool:
-        """Determine if strategy should switch push lanes based on push mode.
+        """Determine if strategy should switch push lanes based on push mode and threats.
+
+        Now integrates threat detection to make smarter lane decisions based on
+        enemy unit positions and tower threats.
 
         Returns:
             bool: True if should switch lanes
         """
+        # Update threat information
+        self.update_threat_status()
+
         if self.push_mode == "Single Lane":
             return False  # Never switch, stay on one lane
         elif self.push_mode == "Dual Lane":
@@ -765,25 +869,62 @@ class BattleStrategy:
                 return True
             return False
         elif self.push_mode == "Counter Push":
-            # Opportunistic lane switching based on defense success
-            # TODO: Integrate with Roboflow model for opponent card detection
-            # For now, uses adaptive logic similar to "Adaptive" mode
-            if self.cards_played_this_push >= self.push_switch_threshold + 1:
+            # Counter-push: defend threatened lane, then counter-attack on opposite lane
+            most_threatened = self.get_most_threatened_lane()
+
+            if most_threatened:
+                # If a lane is heavily threatened, we should focus defense there
+                # After defending (every few cards), counter-push on opposite lane
+                if self.cards_played_this_push >= self.push_switch_threshold:
+                    self.cards_played_this_push = 0
+                    # Counter-push on the opposite lane from threat
+                    counter_lane = "right" if most_threatened == "left" else "left"
+                    if self.current_push_lane != counter_lane:
+                        self.current_push_lane = counter_lane
+                        if self.logger:
+                            self.logger.log(
+                                f"Counter-push: threat on {most_threatened}, "
+                                f"counter-attacking {counter_lane} lane"
+                            )
+                        return True
+                # Stay on threatened lane for defense
+                elif self.current_push_lane != most_threatened:
+                    self.current_push_lane = most_threatened
+                    if self.logger:
+                        self.logger.log(f"Defending threatened {most_threatened} lane")
+                    return True
+                return False
+            # No immediate threats, behave adaptively
+            elif self.cards_played_this_push >= self.push_switch_threshold + 1:
                 self.cards_played_this_push = 0
-                if random.random() > 0.7:  # 30% chance to switch (less than adaptive)
+                if random.random() > 0.7:  # 30% chance to switch
                     self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
                     if self.logger:
-                        self.logger.log(f"Counter-push switch to {self.current_push_lane} lane")
+                        self.logger.log(f"Counter-push opportunistic switch to {self.current_push_lane} lane")
                     return True
             return False
         else:  # Adaptive
-            # Adaptively switch lanes based on situation
+            # Adaptively switch lanes based on situation and threats
+            most_threatened = self.get_most_threatened_lane()
+
+            # If heavily threatened on one side, occasionally defend there
+            if most_threatened and random.random() > 0.7:  # 30% chance to respond to threat
+                if self.current_push_lane != most_threatened:
+                    self.current_push_lane = most_threatened
+                    if self.logger:
+                        self.logger.log(f"Adaptive defense: switching to threatened {most_threatened} lane")
+                    return True
+
+            # Otherwise use normal adaptive switching
             if self.cards_played_this_push >= self.push_switch_threshold + 1:
                 self.cards_played_this_push = 0
+                # Prefer safer lane if there's a clear difference
+                safer_lane = self.get_least_threatened_lane()
                 if random.random() > 0.6:  # 40% chance to switch
-                    self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
+                    self.current_push_lane = safer_lane
                     if self.logger:
-                        self.logger.log(f"Adaptive switch to {self.current_push_lane} lane")
+                        threat_info = " (safer lane)" if safer_lane != self.current_push_lane else ""
+                        self.logger.log(f"Adaptive switch to {self.current_push_lane} lane{threat_info}")
                     return True
             return False
 
@@ -824,6 +965,10 @@ def _fight_loop(
     # Note: last_three_cards deque is managed globally for card selection
     prev_cards_played = logger.get_cards_played()
 
+    # Get card detector for threat detection (if available)
+    from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
+    detector = get_card_detector()
+
     # Initialize battle strategy with configuration
     if strategy_config:
         battle_strategy = BattleStrategy(
@@ -831,9 +976,15 @@ def _fight_loop(
             push_mode=strategy_config.get("push_mode", "Adaptive"),
             aggression_level=strategy_config.get("aggression_level", "Moderate"),
             logger=logger,
+            emulator=emulator,
+            detector=detector,
         )
     else:
-        battle_strategy = BattleStrategy(logger=logger)
+        battle_strategy = BattleStrategy(
+            logger=logger,
+            emulator=emulator,
+            detector=detector,
+        )
 
     battle_strategy.start_battle()
 

@@ -6333,9 +6333,11 @@ def initialize_card_detector(model_config: dict | None = None):
         if _global_detector and _global_detector.model and _global_detector.model.is_available():
             workflow_id = model_config.get("roboflow_workflow_id")
             if workflow_id:
-                print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} workflow: {workflow_id}")
+                model_type = model_config.get('model_type', 'roboflow')
+                print(f"✓ Card detector initialized with {model_type} workflow: {workflow_id}")
             else:
-                print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
+                model_type = model_config.get('model_type', 'roboflow')
+                print(f"✓ Card detector initialized with {model_type} model")
         else:
             print("⚠ Card detector created but model not available")
 
@@ -6381,14 +6383,14 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None):
             # Get screenshot and extract card region
             screenshot = emulator.screenshot()
             card_image = screenshot[y1:y2, x1:x2]
-            
+
             # Roboflow models may work better with larger images
             # Try upscaling the card image to improve detection
             try:
                 import cv2  # noqa: PLC0415
                 # Upscale using configured scale factor for better model recognition
                 upscaled_image = cv2.resize(
-                    card_image, 
+                    card_image,
                     (TOTAL_WIDTH * CARD_IMAGE_SCALE_FACTOR, TOTAL_HEIGHT * CARD_IMAGE_SCALE_FACTOR),
                     interpolation=cv2.INTER_CUBIC
                 )
@@ -6433,7 +6435,14 @@ def get_card_group(card_id) -> str:
     return CARD_TO_GROUP.get(card_id, "No group")
 
 
-def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float = 0, detector=None):
+def get_play_coords_for_card(
+    emulator,
+    logger,
+    card_index,
+    elapsed_time: float = 0,
+    detector=None,
+    threat_status: dict | None = None,
+):
     # get the ID of this card(ram_rider, zap, etc)
     id_cards_start_time = time.time()
     identity = identify_hand_cards(emulator, card_index, detector=detector, logger=logger)
@@ -6443,34 +6452,52 @@ def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float =
     # get the grouping of this card (hog, turret, spell, etc)
     group = get_card_group(identity)
 
-    # get the play coords of this grouping
-    coords = calculate_play_coords(group, play_side, elapsed_time)
+    # get the play coords of this grouping, now with threat awareness
+    coords = calculate_play_coords(group, play_side, elapsed_time, threat_status)
 
     return identity, coords
 
 
-def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time: float = 0):
-    """Calculate play coordinates for a card based on grouping, side, and time.
+def calculate_play_coords(
+    card_grouping: str,
+    side_preference: str,
+    elapsed_time: float = 0,
+    threat_status: dict | None = None,
+):
+    """Calculate play coordinates for a card based on grouping, side, time, and threats.
 
     Enhanced to detect threats and respond defensively when enemy units are near our towers.
+    Now uses threat_status from BattleStrategy for more intelligent placement decisions.
 
     Args:
         card_grouping: Card group type
         side_preference: "left" or "right" preferred side
         elapsed_time: Seconds elapsed in battle
+        threat_status: Optional dict with threat information from detect_tower_threats()
+            {
+                'king_tower_threat': bool,
+                'left_tower_threat': bool,
+                'right_tower_threat': bool,
+                'threats': list[dict],
+            }
 
-    Note: Threat detection requires battle_iar to be initialized by check_which_cards_are_available().
+    Note: Bridge-based threat detection requires battle_iar to be initialized by check_which_cards_are_available().
     Until then, detect_threat_level() returns (0, 0), effectively disabling defensive placement
     until the battle baseline is established (which happens automatically on first card check).
     """
-    # Detect threat levels on both sides using bridge activity
-    # Returns (0, 0) if battle_iar not yet initialized, which is safe
-    left_threat, right_threat = detect_threat_level()
+    # Use enhanced threat status if available, otherwise fall back to bridge activity
+    under_threat_left = False
+    under_threat_right = False
 
-    # Determine if we're under heavy threat
-    # Higher values mean more activity/threat on that side
-    under_threat_left = left_threat > THREAT_DETECTION_THRESHOLD
-    under_threat_right = right_threat > THREAT_DETECTION_THRESHOLD
+    if threat_status and threat_status.get('threats'):
+        # Use threat detection from BattleStrategy (more accurate)
+        under_threat_left = threat_status.get('left_tower_threat', False)
+        under_threat_right = threat_status.get('right_tower_threat', False)
+    else:
+        # Fall back to bridge activity detection
+        left_threat, right_threat = detect_threat_level()
+        under_threat_left = left_threat > THREAT_DETECTION_THRESHOLD
+        under_threat_right = right_threat > THREAT_DETECTION_THRESHOLD
 
     # If we're under threat on the preferred side and this is a card that can defend
     # (not a spell or building), place it defensively
@@ -6483,15 +6510,15 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
 
     # if there is a dedicated coordinate for this card
     if card_grouping == "No group":
-        if elapsed_time < 12:  # Less than 5 seconds
+        if elapsed_time < 12:  # Less than 12 seconds
             if side_preference == "left":
                 return (random.randint(60, 206), random.randint(441, 456))
             return (random.randint(210, 351), random.randint(441, 456))
-        if elapsed_time < 80:  # Less than 2 minutes
+        if elapsed_time < 80:  # Less than 80 seconds
             if side_preference == "left":
                 return (random.randint(60, 206), random.randint(360, 456))
             return (random.randint(210, 351), random.randint(360, 456))
-        # 2 minutes or more
+        # 80 seconds or more
         if side_preference == "left":
             return (random.randint(60, 206), random.randint(281, 456))
         return (random.randint(210, 351), random.randint(281, 456))
@@ -6599,14 +6626,14 @@ def switch_side():
 
 def detect_tower_threats(emulator, detector=None):
     """Detect threats to our towers using object detection.
-    
+
     Uses Roboflow model (if available) to detect enemy units near our towers
     and determine which towers are under threat.
-    
+
     Args:
         emulator: Emulator instance for screenshots
         detector: Optional HybridDetector with Roboflow model
-        
+
     Returns:
         dict: {
             'king_tower_threat': bool,    # True if king tower under threat
@@ -6617,9 +6644,9 @@ def detect_tower_threats(emulator, detector=None):
         }
     """
     # Threat thresholds
-    THREAT_COUNT_LOW = 1
-    THREAT_COUNT_MEDIUM = 3
-    
+    threat_count_low = 1
+    threat_count_medium = 3
+
     result = {
         'king_tower_threat': False,
         'left_tower_threat': False,
@@ -6627,36 +6654,36 @@ def detect_tower_threats(emulator, detector=None):
         'king_tower_health': 'unknown',
         'threats': [],
     }
-    
+
     # Use global detector if none provided
     if detector is None:
         detector = get_card_detector()
-    
+
     # Only proceed if we have a model available
     if not (detector and detector.model and detector.model.is_available()):
         return result
-    
+
     try:
         # Get screenshot
         screenshot = emulator.screenshot()
-        
+
         # Detect objects in the battlefield (enemy territory to mid-field)
         # Y coordinates: 100 (top/enemy territory) to 500 (mid-field approaching our towers)
         battlefield_region = (0, 100, 415, 500)
-        
+
         # Use battlefield object detection if available
         if hasattr(detector.model, 'detect_battlefield_objects'):
             detections = detector.model.detect_battlefield_objects(screenshot, battlefield_region)
         else:
             # Fallback to regular prediction
-            region_image = screenshot[battlefield_region[1]:battlefield_region[3], 
+            region_image = screenshot[battlefield_region[1]:battlefield_region[3],
                                      battlefield_region[0]:battlefield_region[2]]
             detections = detector.model.predict(region_image)
-        
+
         # Analyze detections for threats
         for detection in detections:
             center_x, center_y = detection.get('center', (0, 0))
-            
+
             # Check proximity to our towers (closer to bottom = more dangerous)
             # Threats are typically in Y range 300-500 (approaching our towers)
             if center_y > 300:
@@ -6666,7 +6693,7 @@ def detect_tower_threats(emulator, detector=None):
                     'confidence': detection.get('confidence', 0),
                 }
                 result['threats'].append(threat_info)
-                
+
                 # Determine which tower is threatened based on X position
                 # King tower: X ~180-235, Princess towers: left <180, right >235
                 if 180 <= center_x <= 235 and center_y > 400:
@@ -6678,23 +6705,23 @@ def detect_tower_threats(emulator, detector=None):
                 elif center_x > 235 and center_y > 350:
                     # Near right princess tower
                     result['right_tower_threat'] = True
-        
+
         # Infer tower health based on threat level
         threat_count = len(result['threats'])
-        if threat_count > THREAT_COUNT_MEDIUM:
+        if threat_count > threat_count_medium:
             result['king_tower_health'] = 'low'
-        elif threat_count > THREAT_COUNT_LOW:
+        elif threat_count > threat_count_low:
             result['king_tower_health'] = 'medium'
         else:
             result['king_tower_health'] = 'high'
-            
+
     except Exception as e:
         # Log errors for debugging while gracefully handling failures
         # This is an enhancement feature, so failures shouldn't break the bot
         if detector and hasattr(detector, 'logger'):
             detector.logger.log(f"Threat detection failed: {e}")
         pass
-    
+
     return result
 
 
