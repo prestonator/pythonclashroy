@@ -68,17 +68,21 @@ Controls how the bot distributes card plays across lanes:
 - Best for: Split-lane decks, overwhelming opponent
 - Forces opponent to defend both sides
 
-#### Counter Push
-- Reactive lane selection based on defense
-- (Future enhancement: Will integrate with opponent card detection via Roboflow model)
-- Best for: Counter-attack strategies
-- Currently uses adaptive logic as placeholder
+#### Counter Push ⭐ *Now Enhanced with Threat Detection*
+- **Intelligent reactive lane selection** based on enemy unit detection
+- **Detects threats** to your towers using object detection (when ML model enabled)
+- **Defends threatened lane** when enemies approach your towers
+- **Counter-attacks opposite lane** after successful defense
+- Best for: Counter-attack strategies, defensive play
+- Requires: Roboflow model for optimal performance (falls back to bridge activity detection)
 
-#### Adaptive (Default)
-- Smart lane selection based on situation
+#### Adaptive (Default) ⭐ *Now Enhanced with Threat Detection*
+- **Threat-aware lane selection** considers enemy positions
+- 30% chance to defend when lane is threatened
+- Prefers safer lane (less threats) when switching normally
 - 40% chance to switch after 4 cards
 - Best for: General purpose, flexible strategies
-- Balances single and dual lane approaches
+- Balances single and dual lane approaches with defensive awareness
 
 ### Aggression Levels
 
@@ -146,16 +150,55 @@ Battle started with Aggressive elixir, Dual Lane push, Very Aggressive aggressio
 Phase: single, Selected elixir target: 4 (Mode: Aggressive)
 Phase: single, Thresholds: (3000, 6000) (Aggression: Very Aggressive)
 Switching to right lane (Dual Lane strategy)
+
+Threat update: 2 threats detected - Left: True, Right: False, King: False
+Counter-push: threat on left, counter-attacking right lane
 ```
+
+## Threat Detection System ⭐ *New Feature*
+
+The strategy system now includes intelligent threat detection to make the bot more reactive and defensive:
+
+### How It Works
+
+1. **Object Detection**: Uses Roboflow ML model (when enabled) to detect enemy units on the battlefield
+2. **Threat Analysis**: Identifies which towers are under threat based on enemy positions
+3. **Strategic Response**: Adjusts lane selection and card placement based on detected threats
+
+### Threat-Aware Features
+
+#### Lane Selection
+- **Counter Push mode**: Detects threats and defends appropriately, then counter-attacks
+- **Adaptive mode**: 30% chance to switch to threatened lane for defense
+- **All modes**: Prefer safer lanes when threats are detected
+
+#### Card Placement
+- **Defensive positioning**: Cards placed defensively when threats detected near towers
+- **Threat-aware coordinates**: Uses actual enemy positions for smarter placement
+- **Fallback logic**: Uses bridge activity detection when ML model unavailable
+
+#### Performance
+- **Rate limited**: Checks threats every 2 seconds to maintain performance
+- **Graceful degradation**: Falls back to bridge activity if ML model not available
+- **Low overhead**: Minimal impact on battle loop performance
+
+### Enabling Threat Detection
+
+Threat detection works best with the Roboflow model enabled:
+1. Configure Roboflow model in Settings → Models
+2. Enable object detection/battlefield tracking
+3. Bot automatically uses threat detection during battles
+
+Without a model, the system falls back to bridge activity detection (color change analysis).
 
 ## Integration with Roboflow Model
 
 The strategy system is designed to work with the Roboflow card detection model:
 
-- **Current**: Uses template matching for card detection
-- **Enhanced**: When Roboflow model is enabled, can detect opponent cards
-- **Future**: Counter Push strategy will use detected opponent cards to make smarter lane decisions
-- **Benefit**: More accurate card recognition → Better strategy execution
+- **Card Detection**: Uses ML model for accurate card identification
+- **Threat Detection**: Detects enemy units approaching your towers
+- **Strategic Intelligence**: Makes smarter decisions based on real-time battlefield analysis
+- **Benefit**: More accurate recognition → Better strategy execution and defensive play
 
 ## Recommended Combinations
 
