@@ -38,7 +38,7 @@ class RoboflowModel(DetectionModel):
             confidence: Minimum confidence threshold for predictions (0.0-1.0)
             **kwargs: Additional inference parameters
             
-        Note: Provide either model_id OR workflow_id, not both. Workflows take precedence if both provided.
+        Note: Provide either model_id OR workflow_id, not both. If both provided, workflow_id takes precedence.
         """
         self.api_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
         self.model_id = model_id
@@ -46,7 +46,15 @@ class RoboflowModel(DetectionModel):
         self.confidence = confidence
         self.inference_client = None
         self._available = False
-        self._use_workflow = bool(workflow_id)
+        
+        # Validate that workflow_id or model_id is provided, but warn if both
+        if workflow_id and model_id:
+            print("Warning: Both workflow_id and model_id provided. Using workflow_id, ignoring model_id.")
+            self._use_workflow = True
+        elif workflow_id:
+            self._use_workflow = True
+        else:
+            self._use_workflow = False
 
         # Initialize the inference client if credentials are provided
         if self.api_key and (self.model_id or self.workflow_id):
@@ -163,10 +171,22 @@ class RoboflowModel(DetectionModel):
         Returns:
             list[dict]: Standardized prediction results
         """
+        # Parse workflow ID to extract workspace and workflow name
+        # Expected format: "workspace-name/workflow-id"
+        if '/' not in self.workflow_id:
+            print(f"Warning: workflow_id '{self.workflow_id}' missing workspace. Expected format: 'workspace/workflow-id'")
+            # Try to use it as-is, might work if workspace is implicit
+            workspace_name = None
+            workflow_name = self.workflow_id
+        else:
+            parts = self.workflow_id.split('/', 1)
+            workspace_name = parts[0]
+            workflow_name = parts[1]
+        
         # Run workflow inference
         result = self.inference_client.run_workflow(
-            workspace_name=self.workflow_id.split('/')[0] if '/' in self.workflow_id else None,
-            workflow_id=self.workflow_id.split('/')[-1] if '/' in self.workflow_id else self.workflow_id,
+            workspace_name=workspace_name,
+            workflow_id=workflow_name,
             images={"image": image_data},
             parameters=kwargs,
         )

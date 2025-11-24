@@ -6051,6 +6051,9 @@ HALF_HEIGHT = int(TOTAL_HEIGHT / 2)
 
 # color stuff
 CARD_MATCH_THRESHOLD = 1000
+# Scale factor for upscaling small card images for better model recognition
+# 54x66 pixels → 162x198 pixels (3x scale)
+CARD_IMAGE_SCALE_FACTOR = 3
 
 COLORS = {
     "Red": [255, 0, 0],
@@ -6112,9 +6115,9 @@ def find_closest_card(collected_data):
     # Debugging output removed from production.
 
     # If no match found within threshold, return UNKNOWN
-    # But provide the best guess anyway if it's close (within 1.5x threshold)
+    # But provide the best guess anyway if it's close (within 1.5x of CARD_MATCH_THRESHOLD)
     if best_offset > CARD_MATCH_THRESHOLD:
-        # If we're within 50% of threshold (1500), return best guess
+        # If we're within 50% of threshold, return best guess
         # This helps when lighting conditions vary slightly
         if best_offset <= CARD_MATCH_THRESHOLD * 1.5:
             return best_card if best_card else "UNKNOWN"
@@ -6383,11 +6386,10 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None):
             # Try upscaling the card image to improve detection
             try:
                 import cv2  # noqa: PLC0415
-                # Upscale 3x for better model recognition (54x66 -> 162x198)
-                scale_factor = 3
+                # Upscale using configured scale factor for better model recognition
                 upscaled_image = cv2.resize(
                     card_image, 
-                    (TOTAL_WIDTH * scale_factor, TOTAL_HEIGHT * scale_factor),
+                    (TOTAL_WIDTH * CARD_IMAGE_SCALE_FACTOR, TOTAL_HEIGHT * CARD_IMAGE_SCALE_FACTOR),
                     interpolation=cv2.INTER_CUBIC
                 )
                 # Try detection with upscaled image
