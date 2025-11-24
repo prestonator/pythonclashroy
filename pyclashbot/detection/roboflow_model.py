@@ -170,18 +170,24 @@ class RoboflowModel(DetectionModel):
             
         Returns:
             list[dict]: Standardized prediction results
+            
+        Raises:
+            ValueError: If workflow_id format is invalid
         """
         # Parse workflow ID to extract workspace and workflow name
         # Expected format: "workspace-name/workflow-id"
         if '/' not in self.workflow_id:
-            print(f"Warning: workflow_id '{self.workflow_id}' missing workspace. Expected format: 'workspace/workflow-id'")
-            # Try to use it as-is, might work if workspace is implicit
-            workspace_name = None
-            workflow_name = self.workflow_id
-        else:
-            parts = self.workflow_id.split('/', 1)
-            workspace_name = parts[0]
-            workflow_name = parts[1]
+            error_msg = (
+                f"Invalid workflow_id format: '{self.workflow_id}'. "
+                f"Expected format: 'workspace-name/workflow-id'. "
+                f"Workspace is required for workflow execution."
+            )
+            print(f"Error: {error_msg}")
+            raise ValueError(error_msg)
+        
+        parts = self.workflow_id.split('/', 1)
+        workspace_name = parts[0]
+        workflow_name = parts[1]
         
         # Run workflow inference
         result = self.inference_client.run_workflow(

@@ -928,10 +928,7 @@ class PyClashBotUI(ttk.Window):
         self._register_config_widget(UIField.ROBOFLOW_WORKFLOW_ID.value, workflow_id_entry)
         ToolTip(
             workflow_id_entry, 
-            "Format: workspace/workflow-id\n"
-            "Use workflows for multi-model pipelines.\n"
-            "Leave blank to use Model ID above.\n"
-            "See QUICKSTART_MODELS.md for workflow recommendations."
+            "Format: workspace/workflow-id. Use workflows for multi-model pipelines. Leave blank to use Model ID above. See QUICKSTART_MODELS.md for recommendations."
         )
 
         # Confidence threshold

@@ -6449,17 +6449,15 @@ def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float =
     return identity, coords
 
 
-def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time: float = 0, detector=None):
+def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time: float = 0):
     """Calculate play coordinates for a card based on grouping, side, and time.
 
     Enhanced to detect threats and respond defensively when enemy units are near our towers.
-    Also uses Roboflow model (if available) for better threat detection.
 
     Args:
         card_grouping: Card group type
         side_preference: "left" or "right" preferred side
         elapsed_time: Seconds elapsed in battle
-        detector: Optional HybridDetector for enhanced threat detection
 
     Note: Threat detection requires battle_iar to be initialized by check_which_cards_are_available().
     Until then, detect_threat_level() returns (0, 0), effectively disabling defensive placement
@@ -6642,16 +6640,9 @@ def detect_tower_threats(emulator, detector=None):
         # Get screenshot
         screenshot = emulator.screenshot()
         
-        # Define regions for our towers (approximate positions)
-        # King tower is at bottom center: Y ~500-600, X ~180-220
-        king_tower_region = (160, 480, 250, 600)
-        
-        # Princess towers are at bottom left/right: Y ~150-200
-        left_tower_region = (80, 140, 140, 200)
-        right_tower_region = (270, 140, 330, 200)
-        
-        # Detect objects in the battlefield (enemy territory and our side)
-        battlefield_region = (0, 100, 415, 500)  # Top half to our side
+        # Detect objects in the battlefield (enemy territory to mid-field)
+        # Y coordinates: 100 (top/enemy territory) to 500 (mid-field approaching our towers)
+        battlefield_region = (0, 100, 415, 500)
         
         # Use battlefield object detection if available
         if hasattr(detector.model, 'detect_battlefield_objects'):
@@ -6676,7 +6667,8 @@ def detect_tower_threats(emulator, detector=None):
                 }
                 result['threats'].append(threat_info)
                 
-                # Determine which tower is threatened
+                # Determine which tower is threatened based on X position
+                # King tower: X ~180-235, Princess towers: left <180, right >235
                 if 180 <= center_x <= 235 and center_y > 400:
                     # Near king tower
                     result['king_tower_threat'] = True
@@ -6696,9 +6688,11 @@ def detect_tower_threats(emulator, detector=None):
         else:
             result['king_tower_health'] = 'high'
             
-    except Exception:
-        # Silently handle errors - this is an enhancement feature
-        # If detection fails, return safe defaults (no threats detected)
+    except Exception as e:
+        # Log errors for debugging while gracefully handling failures
+        # This is an enhancement feature, so failures shouldn't break the bot
+        if detector and hasattr(detector, 'logger'):
+            detector.logger.log(f"Threat detection failed: {e}")
         pass
     
     return result
