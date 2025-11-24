@@ -9,6 +9,7 @@ from pyclashbot.bot.card_detection import (
     check_which_cards_are_available,
     create_default_bridge_iar,
     detect_tower_threats,
+    get_card_detector,
     get_play_coords_for_card,
     switch_side,
 )
@@ -966,7 +967,6 @@ def _fight_loop(
     prev_cards_played = logger.get_cards_played()
 
     # Get card detector for threat detection (if available)
-    from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
     detector = get_card_detector()
 
     # Initialize battle strategy with configuration

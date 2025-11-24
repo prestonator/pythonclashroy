@@ -6218,6 +6218,10 @@ DEFENSIVE_LEFT_X_MAX = 180  # Maximum X for left side defensive placement
 DEFENSIVE_RIGHT_X_MIN = 240  # Minimum X for right side defensive placement
 DEFENSIVE_RIGHT_X_MAX = 350  # Maximum X for right side defensive placement
 
+# Threat level thresholds for tower health inference
+THREAT_COUNT_LOW = 1  # Minimum threats to consider tower under light pressure
+THREAT_COUNT_MEDIUM = 3  # Minimum threats to consider tower under heavy pressure
+
 # Bridge detection constants
 BRIDGE_WIDTH = 40  # Width of bridge area to analyze for threat detection
 BRIDGE_HEIGHT = 175  # Height of bridge area to analyze for threat detection
@@ -6331,12 +6335,11 @@ def initialize_card_detector(model_config: dict | None = None):
 
         # Print status to console for debugging
         if _global_detector and _global_detector.model and _global_detector.model.is_available():
+            model_type = model_config.get('model_type', 'roboflow')
             workflow_id = model_config.get("roboflow_workflow_id")
             if workflow_id:
-                model_type = model_config.get('model_type', 'roboflow')
                 print(f"✓ Card detector initialized with {model_type} workflow: {workflow_id}")
             else:
-                model_type = model_config.get('model_type', 'roboflow')
                 print(f"✓ Card detector initialized with {model_type} model")
         else:
             print("⚠ Card detector created but model not available")
@@ -6643,10 +6646,6 @@ def detect_tower_threats(emulator, detector=None):
             'threats': list[dict],         # List of detected threats with positions
         }
     """
-    # Threat thresholds
-    threat_count_low = 1
-    threat_count_medium = 3
-
     result = {
         'king_tower_threat': False,
         'left_tower_threat': False,
@@ -6708,9 +6707,9 @@ def detect_tower_threats(emulator, detector=None):
 
         # Infer tower health based on threat level
         threat_count = len(result['threats'])
-        if threat_count > threat_count_medium:
+        if threat_count > THREAT_COUNT_MEDIUM:
             result['king_tower_health'] = 'low'
-        elif threat_count > threat_count_low:
+        elif threat_count > THREAT_COUNT_LOW:
             result['king_tower_health'] = 'medium'
         else:
             result['king_tower_health'] = 'high'
