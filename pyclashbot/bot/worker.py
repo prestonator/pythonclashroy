@@ -54,22 +54,34 @@ class WorkerThread(PausableThread):
             'model_type': jobs.get(UIField.MODEL_TYPE.value, 'roboflow'),
             'roboflow_api_key': jobs.get(UIField.ROBOFLOW_API_KEY.value),
             'roboflow_model_id': jobs.get(UIField.ROBOFLOW_MODEL_ID.value),
+            'roboflow_workflow_id': jobs.get(UIField.ROBOFLOW_WORKFLOW_ID.value),
             'confidence_threshold': jobs.get(UIField.MODEL_CONFIDENCE_THRESHOLD.value, 0.7),
         }
 
         initialize_card_detector(model_config)
         if model_config.get('model_enabled'):
             model_type = model_config.get('model_type', 'unknown')
-            self.logger.log(f"✓ Roboflow connection initialized: Using {model_type} model")
-            self.logger.log(f"  Model ID: {model_config.get('roboflow_model_id', 'not specified')}")
+            workflow_id = model_config.get('roboflow_workflow_id')
+            model_id = model_config.get('roboflow_model_id')
+            
+            if workflow_id:
+                self.logger.log(f"✓ Roboflow Workflow initialized: {workflow_id}")
+                self.logger.log(f"  Using workflow-based detection pipeline")
+            elif model_id:
+                self.logger.log(f"✓ Roboflow model initialized: {model_id}")
+            else:
+                self.logger.log(f"✓ Roboflow connection initialized: Using {model_type}")
+                
             self.logger.log(f"  Confidence threshold: {model_config.get('confidence_threshold', 0.7)}")
+            
             # Check if model is actually available
             from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
             detector = get_card_detector()
             if detector and detector.model and detector.model.is_available():
-                self.logger.log(f"✓ {model_type.capitalize()} model is active and will be used in battles")
+                detection_method = "workflow" if workflow_id else "model"
+                self.logger.log(f"✓ {model_type.capitalize()} {detection_method} is active and will be used in battles")
             else:
-                self.logger.log(f"⚠ {model_type.capitalize()} model configuration found but model not available")
+                self.logger.log(f"⚠ {model_type.capitalize()} configuration found but not available")
         else:
             self.logger.log("Model detection disabled - using traditional CV methods only")
 

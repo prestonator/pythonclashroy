@@ -104,6 +104,7 @@ class PyClashBotUI(ttk.Window):
         values[UIField.MODEL_TYPE.value] = self.model_type_var.get()
         values[UIField.ROBOFLOW_API_KEY.value] = self.roboflow_api_key_var.get()
         values[UIField.ROBOFLOW_MODEL_ID.value] = self.roboflow_model_id_var.get()
+        values[UIField.ROBOFLOW_WORKFLOW_ID.value] = self.roboflow_workflow_id_var.get()
         values[UIField.MODEL_CONFIDENCE_THRESHOLD.value] = self._safe_float(
             self.model_confidence_var.get(), fallback=0.7
         )
@@ -159,6 +160,8 @@ class PyClashBotUI(ttk.Window):
                 self.roboflow_api_key_var.set(str(values[UIField.ROBOFLOW_API_KEY.value]))
             if UIField.ROBOFLOW_MODEL_ID.value in values:
                 self.roboflow_model_id_var.set(str(values[UIField.ROBOFLOW_MODEL_ID.value]))
+            if UIField.ROBOFLOW_WORKFLOW_ID.value in values:
+                self.roboflow_workflow_id_var.set(str(values[UIField.ROBOFLOW_WORKFLOW_ID.value]))
             if UIField.MODEL_CONFIDENCE_THRESHOLD.value in values:
                 self.model_confidence_var.set(str(values[UIField.MODEL_CONFIDENCE_THRESHOLD.value]))
 
@@ -900,6 +903,36 @@ class PyClashBotUI(ttk.Window):
         self._trace_variable(self.roboflow_model_id_var)
         self._register_config_widget(UIField.ROBOFLOW_MODEL_ID.value, model_id_entry)
         ToolTip(model_id_entry, "Format: project-name/version (e.g., clash-royale-cards/1)")
+
+        # OR label
+        or_label = ttk.Label(
+            model_frame,
+            text="— OR —",
+            font=("TkDefaultFont", 8),
+            bootstyle="secondary",
+        )
+        or_label.pack(pady=(4, 4))
+
+        # Roboflow Workflow ID (alternative to Model ID)
+        workflow_id_frame = ttk.Frame(model_frame)
+        workflow_id_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(workflow_id_frame, text="Roboflow Workflow ID (Advanced):").pack(anchor="w")
+        self.roboflow_workflow_id_var = ttk.StringVar(value="")
+        workflow_id_entry = ttk.Entry(
+            workflow_id_frame,
+            textvariable=self.roboflow_workflow_id_var,
+            width=40,
+        )
+        workflow_id_entry.pack(fill="x", pady=(4, 0))
+        self._trace_variable(self.roboflow_workflow_id_var)
+        self._register_config_widget(UIField.ROBOFLOW_WORKFLOW_ID.value, workflow_id_entry)
+        ToolTip(
+            workflow_id_entry, 
+            "Format: workspace/workflow-id\n"
+            "Use workflows for multi-model pipelines.\n"
+            "Leave blank to use Model ID above.\n"
+            "See QUICKSTART_MODELS.md for workflow recommendations."
+        )
 
         # Confidence threshold
         confidence_frame = ttk.Frame(model_frame)

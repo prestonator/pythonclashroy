@@ -6317,6 +6317,7 @@ def initialize_card_detector(model_config: dict | None = None):
             "model_config": {
                 "api_key": model_config.get("roboflow_api_key"),
                 "model_id": model_config.get("roboflow_model_id"),
+                "workflow_id": model_config.get("roboflow_workflow_id"),
                 "confidence": model_config.get("confidence_threshold", 0.7),
             },
             "use_model_first": True,
@@ -6327,7 +6328,11 @@ def initialize_card_detector(model_config: dict | None = None):
 
         # Print status to console for debugging
         if _global_detector and _global_detector.model and _global_detector.model.is_available():
-            print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
+            workflow_id = model_config.get("roboflow_workflow_id")
+            if workflow_id:
+                print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} workflow: {workflow_id}")
+            else:
+                print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
         else:
             print("⚠ Card detector created but model not available")
 
