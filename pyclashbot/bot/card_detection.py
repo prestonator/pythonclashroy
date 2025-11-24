@@ -6111,7 +6111,13 @@ def find_closest_card(collected_data):
 
     # Debugging output removed from production.
 
+    # If no match found within threshold, return UNKNOWN
+    # But provide the best guess anyway if it's close (within 1.5x threshold)
     if best_offset > CARD_MATCH_THRESHOLD:
+        # If we're within 50% of threshold (1500), return best guess
+        # This helps when lighting conditions vary slightly
+        if best_offset <= CARD_MATCH_THRESHOLD * 1.5:
+            return best_card if best_card else "UNKNOWN"
         return "UNKNOWN"
 
     return best_card
@@ -6339,7 +6345,7 @@ def get_card_detector():
     return _global_detector
 
 
-def identify_hand_cards(emulator, card_index, detector=None, logger=None, draw_bboxes=False):
+def identify_hand_cards(emulator, card_index, detector=None, logger=None):
     """Identify a card in hand using hybrid detection (model + traditional fallback).
 
     Args:
@@ -6348,7 +6354,6 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None, draw_b
         detector: Optional HybridDetector instance for model-based detection.
                   If None, uses global detector if available.
         logger: Optional logger for logging detection method used
-        draw_bboxes: If True, draw bounding boxes on detected objects (for debugging)
 
     Returns:
         str: Identified card name
@@ -6368,26 +6373,30 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None, draw_b
             # Get screenshot and extract card region
             screenshot = emulator.screenshot()
             card_image = screenshot[y1:y2, x1:x2]
+            
+            # Roboflow models may work better with larger images
+            # Try upscaling the card image to improve detection
+            try:
+                import cv2  # noqa: PLC0415
+                # Upscale 3x for better model recognition (54x66 -> 162x198)
+                scale_factor = 3
+                upscaled_image = cv2.resize(
+                    card_image, 
+                    (TOTAL_WIDTH * scale_factor, TOTAL_HEIGHT * scale_factor),
+                    interpolation=cv2.INTER_CUBIC
+                )
+                # Try detection with upscaled image
+                predictions = detector.model.predict(upscaled_image)
+            except ImportError:
+                # If cv2 not available, use original size
+                predictions = detector.model.predict(card_image)
 
-            # Try model-based detection
-            predictions = detector.model.predict(card_image)
             if predictions:
                 best_pred = max(predictions, key=lambda x: x["confidence"])
                 if best_pred["confidence"] >= detector.model_confidence_threshold:
                     card_name = best_pred["class"]
                     if logger:
                         logger.log(f"Card detected via MODEL: {card_name} (confidence: {best_pred['confidence']:.2f})")
-                    
-                    # Draw bounding box if requested (for debugging/visualization)
-                    if draw_bboxes and "bbox" in best_pred:
-                        _draw_detection_bbox(
-                            screenshot, 
-                            best_pred["bbox"], 
-                            card_name, 
-                            best_pred["confidence"],
-                            offset=(x1, y1)
-                        )
-                    
                     return card_name
                 elif logger:
                     logger.log(
@@ -6406,40 +6415,6 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None, draw_b
     if logger and detector and detector.model and detector.model.is_available():
         logger.log(f"Card detected via TRADITIONAL CV: {card_name}")
     return card_name
-
-
-def _draw_detection_bbox(image, bbox, label, confidence, offset=(0, 0)):
-    """Draw a bounding box with label on an image (for debugging/visualization).
-    
-    Args:
-        image: numpy array image to draw on
-        bbox: [x, y, width, height] bounding box coordinates
-        label: Classification label
-        confidence: Detection confidence score
-        offset: (x_offset, y_offset) to adjust coordinates
-    """
-    try:
-        import cv2  # noqa: PLC0415
-        
-        x, y, w, h = bbox
-        x1 = int(x + offset[0])
-        y1 = int(y + offset[1])
-        x2 = int(x1 + w)
-        y2 = int(y1 + h)
-        
-        # Draw rectangle
-        cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
-        # Draw label background
-        label_text = f"{label} {confidence:.2f}"
-        (text_width, text_height), _ = cv2.getTextSize(label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(image, (x1, y1 - text_height - 4), (x1 + text_width, y1), (0, 255, 0), -1)
-        
-        # Draw label text
-        cv2.putText(image, label_text, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-    except Exception:
-        # Silently fail if drawing fails - this is just for debugging
-        pass
 
 
 # Create the reverse lookup dictionary
