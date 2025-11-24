@@ -6051,6 +6051,9 @@ HALF_HEIGHT = int(TOTAL_HEIGHT / 2)
 
 # color stuff
 CARD_MATCH_THRESHOLD = 1000
+# Scale factor for upscaling small card images for better model recognition
+# 54x66 pixels → 162x198 pixels (3x scale)
+CARD_IMAGE_SCALE_FACTOR = 3
 
 COLORS = {
     "Red": [255, 0, 0],
@@ -6111,7 +6114,13 @@ def find_closest_card(collected_data):
 
     # Debugging output removed from production.
 
+    # If no match found within threshold, return UNKNOWN
+    # But provide the best guess anyway if it's close (within 1.5x of CARD_MATCH_THRESHOLD)
     if best_offset > CARD_MATCH_THRESHOLD:
+        # If we're within 50% of threshold, return best guess
+        # This helps when lighting conditions vary slightly
+        if best_offset <= CARD_MATCH_THRESHOLD * 1.5:
+            return best_card if best_card else "UNKNOWN"
         return "UNKNOWN"
 
     return best_card
@@ -6311,6 +6320,7 @@ def initialize_card_detector(model_config: dict | None = None):
             "model_config": {
                 "api_key": model_config.get("roboflow_api_key"),
                 "model_id": model_config.get("roboflow_model_id"),
+                "workflow_id": model_config.get("roboflow_workflow_id"),
                 "confidence": model_config.get("confidence_threshold", 0.7),
             },
             "use_model_first": True,
@@ -6321,7 +6331,11 @@ def initialize_card_detector(model_config: dict | None = None):
 
         # Print status to console for debugging
         if _global_detector and _global_detector.model and _global_detector.model.is_available():
-            print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
+            workflow_id = model_config.get("roboflow_workflow_id")
+            if workflow_id:
+                print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} workflow: {workflow_id}")
+            else:
+                print(f"✓ Card detector initialized with {model_config.get('model_type', 'roboflow')} model")
         else:
             print("⚠ Card detector created but model not available")
 
@@ -6367,9 +6381,23 @@ def identify_hand_cards(emulator, card_index, detector=None, logger=None):
             # Get screenshot and extract card region
             screenshot = emulator.screenshot()
             card_image = screenshot[y1:y2, x1:x2]
+            
+            # Roboflow models may work better with larger images
+            # Try upscaling the card image to improve detection
+            try:
+                import cv2  # noqa: PLC0415
+                # Upscale using configured scale factor for better model recognition
+                upscaled_image = cv2.resize(
+                    card_image, 
+                    (TOTAL_WIDTH * CARD_IMAGE_SCALE_FACTOR, TOTAL_HEIGHT * CARD_IMAGE_SCALE_FACTOR),
+                    interpolation=cv2.INTER_CUBIC
+                )
+                # Try detection with upscaled image
+                predictions = detector.model.predict(upscaled_image)
+            except ImportError:
+                # If cv2 not available, use original size
+                predictions = detector.model.predict(card_image)
 
-            # Try model-based detection
-            predictions = detector.model.predict(card_image)
             if predictions:
                 best_pred = max(predictions, key=lambda x: x["confidence"])
                 if best_pred["confidence"] >= detector.model_confidence_threshold:
@@ -6426,11 +6454,16 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
 
     Enhanced to detect threats and respond defensively when enemy units are near our towers.
 
+    Args:
+        card_grouping: Card group type
+        side_preference: "left" or "right" preferred side
+        elapsed_time: Seconds elapsed in battle
+
     Note: Threat detection requires battle_iar to be initialized by check_which_cards_are_available().
     Until then, detect_threat_level() returns (0, 0), effectively disabling defensive placement
     until the battle baseline is established (which happens automatically on first card check).
     """
-    # Detect threat levels on both sides
+    # Detect threat levels on both sides using bridge activity
     # Returns (0, 0) if battle_iar not yet initialized, which is safe
     left_threat, right_threat = detect_threat_level()
 
@@ -6562,6 +6595,107 @@ def switch_side():
     if bridge_color_offset[0] > bridge_color_offset[1]:
         return bridge_color_offset[0], "left"
     return bridge_color_offset[1], "right"
+
+
+def detect_tower_threats(emulator, detector=None):
+    """Detect threats to our towers using object detection.
+    
+    Uses Roboflow model (if available) to detect enemy units near our towers
+    and determine which towers are under threat.
+    
+    Args:
+        emulator: Emulator instance for screenshots
+        detector: Optional HybridDetector with Roboflow model
+        
+    Returns:
+        dict: {
+            'king_tower_threat': bool,    # True if king tower under threat
+            'left_tower_threat': bool,     # True if left princess tower under threat
+            'right_tower_threat': bool,    # True if right princess tower under threat
+            'king_tower_health': str,      # 'high', 'medium', 'low', or 'unknown'
+            'threats': list[dict],         # List of detected threats with positions
+        }
+    """
+    # Threat thresholds
+    THREAT_COUNT_LOW = 1
+    THREAT_COUNT_MEDIUM = 3
+    
+    result = {
+        'king_tower_threat': False,
+        'left_tower_threat': False,
+        'right_tower_threat': False,
+        'king_tower_health': 'unknown',
+        'threats': [],
+    }
+    
+    # Use global detector if none provided
+    if detector is None:
+        detector = get_card_detector()
+    
+    # Only proceed if we have a model available
+    if not (detector and detector.model and detector.model.is_available()):
+        return result
+    
+    try:
+        # Get screenshot
+        screenshot = emulator.screenshot()
+        
+        # Detect objects in the battlefield (enemy territory to mid-field)
+        # Y coordinates: 100 (top/enemy territory) to 500 (mid-field approaching our towers)
+        battlefield_region = (0, 100, 415, 500)
+        
+        # Use battlefield object detection if available
+        if hasattr(detector.model, 'detect_battlefield_objects'):
+            detections = detector.model.detect_battlefield_objects(screenshot, battlefield_region)
+        else:
+            # Fallback to regular prediction
+            region_image = screenshot[battlefield_region[1]:battlefield_region[3], 
+                                     battlefield_region[0]:battlefield_region[2]]
+            detections = detector.model.predict(region_image)
+        
+        # Analyze detections for threats
+        for detection in detections:
+            center_x, center_y = detection.get('center', (0, 0))
+            
+            # Check proximity to our towers (closer to bottom = more dangerous)
+            # Threats are typically in Y range 300-500 (approaching our towers)
+            if center_y > 300:
+                threat_info = {
+                    'type': detection.get('class', 'unknown'),
+                    'position': (center_x, center_y),
+                    'confidence': detection.get('confidence', 0),
+                }
+                result['threats'].append(threat_info)
+                
+                # Determine which tower is threatened based on X position
+                # King tower: X ~180-235, Princess towers: left <180, right >235
+                if 180 <= center_x <= 235 and center_y > 400:
+                    # Near king tower
+                    result['king_tower_threat'] = True
+                elif center_x < 180 and center_y > 350:
+                    # Near left princess tower
+                    result['left_tower_threat'] = True
+                elif center_x > 235 and center_y > 350:
+                    # Near right princess tower
+                    result['right_tower_threat'] = True
+        
+        # Infer tower health based on threat level
+        threat_count = len(result['threats'])
+        if threat_count > THREAT_COUNT_MEDIUM:
+            result['king_tower_health'] = 'low'
+        elif threat_count > THREAT_COUNT_LOW:
+            result['king_tower_health'] = 'medium'
+        else:
+            result['king_tower_health'] = 'high'
+            
+    except Exception as e:
+        # Log errors for debugging while gracefully handling failures
+        # This is an enhancement feature, so failures shouldn't break the bot
+        if detector and hasattr(detector, 'logger'):
+            detector.logger.log(f"Threat detection failed: {e}")
+        pass
+    
+    return result
 
 
 if __name__ == "__main__":
