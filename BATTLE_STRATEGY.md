@@ -69,10 +69,16 @@ Controls how the bot distributes card plays across lanes:
 - Forces opponent to defend both sides
 
 #### Counter Push
-- Reactive lane selection based on defense
-- (Future enhancement: Will integrate with opponent card detection via Roboflow model)
-- Best for: Counter-attack strategies
-- Currently uses adaptive logic as placeholder
+- Reactive lane selection based on threat detection
+- Detects which lane the enemy is attacking using bridge activity analysis
+- Automatically switches to defend the threatened lane
+- After successfully defending, initiates a counter push on that same lane
+- Best for: Counter-attack strategies, defensive decks
+- **Behavior:**
+  - Monitors threat levels on both lanes continuously
+  - Switches to defend when significant enemy activity is detected (threat > 3000)
+  - After threat is cleared, pushes back with up to 4 cards
+  - Then resets and continues monitoring for new threats
 
 #### Adaptive (Default)
 - Smart lane selection based on situation
@@ -183,6 +189,12 @@ The strategy system is designed to work with the Roboflow card detection model:
 - Elixir: Aggressive
 - Push: Adaptive
 - Aggression: Very Aggressive
+
+### For Counter Push / Defensive Decks
+- Elixir: Balanced
+- Push: Counter Push
+- Aggression: Defensive
+- Best for: PEKKA, Giant Skeleton, Ice Wizard defensive decks
 
 ## Technical Implementation
 

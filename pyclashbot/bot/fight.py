@@ -8,6 +8,7 @@ from typing import Literal
 from pyclashbot.bot.card_detection import (
     check_which_cards_are_available,
     create_default_bridge_iar,
+    detect_threat_level,
     get_play_coords_for_card,
     switch_side,
 )
@@ -687,6 +688,13 @@ class BattleStrategy:
         self.cards_played_this_push = 0
         self.push_switch_threshold = 3  # Switch lanes after this many cards
 
+        # Counter Push specific state tracking
+        self.last_defended_lane = None  # Lane where we last defended a threat
+        self.is_counter_pushing = False  # True when we're pushing after a successful defense
+        self.counter_push_cards = 0  # Cards played during counter push
+        self.counter_push_max_cards = 4  # Max cards to play in a counter push before resetting
+        self.threat_threshold = 3000  # Threshold for detecting significant enemy threat
+
         # Log strategy configuration
         if self.logger:
             self.logger.log("BattleStrategy initialized with:")
@@ -698,6 +706,10 @@ class BattleStrategy:
         """Call when battle begins to start timing."""
         self.start_time = time.time()
         self.cards_played_this_push = 0
+        # Reset counter push state for new battle
+        self.last_defended_lane = None
+        self.is_counter_pushing = False
+        self.counter_push_cards = 0
         if self.logger:
             self.logger.log(
                 f"Battle started with {self.elixir_mode} elixir, "
@@ -747,6 +759,81 @@ class BattleStrategy:
 
         return thresholds
 
+    def _evaluate_counter_push_lane(self) -> str | None:
+        """Evaluate threat levels and determine the appropriate lane for counter push.
+
+        This method implements the core Counter Push logic:
+        1. Detect threat levels on both lanes
+        2. If a significant threat is detected, switch to defend that lane
+        3. After defending, push back on that same lane
+
+        Returns:
+            str | None: The lane to focus on ("left" or "right"), or None if no change needed
+        """
+        left_threat, right_threat = detect_threat_level()
+
+        # Determine which lane has a significant threat
+        left_under_attack = left_threat > self.threat_threshold
+        right_under_attack = right_threat > self.threat_threshold
+
+        if self.logger:
+            self.logger.log(
+                f"Counter Push evaluation - Left threat: {left_threat:.0f}, "
+                f"Right threat: {right_threat:.0f}, Threshold: {self.threat_threshold}"
+            )
+
+        # If we're currently counter-pushing, check if we should continue or reset
+        if self.is_counter_pushing:
+            if self.counter_push_cards >= self.counter_push_max_cards:
+                # Counter push is complete, reset state
+                if self.logger:
+                    self.logger.log("Counter push complete, resetting state")
+                self.is_counter_pushing = False
+                self.counter_push_cards = 0
+                self.last_defended_lane = None
+                return None
+
+            # Continue pushing on the defended lane
+            return self.last_defended_lane
+
+        # Check for new threats to respond to
+        if left_under_attack and not right_under_attack:
+            # Enemy is attacking left lane
+            if self.current_push_lane != "left" or self.last_defended_lane != "left":
+                if self.logger:
+                    self.logger.log("Threat detected on LEFT lane - switching to defend and counter")
+                self.last_defended_lane = "left"
+                return "left"
+        elif right_under_attack and not left_under_attack:
+            # Enemy is attacking right lane
+            if self.current_push_lane != "right" or self.last_defended_lane != "right":
+                if self.logger:
+                    self.logger.log("Threat detected on RIGHT lane - switching to defend and counter")
+                self.last_defended_lane = "right"
+                return "right"
+        elif left_under_attack and right_under_attack:
+            # Both lanes under attack - focus on the more threatened side
+            target_lane = "left" if left_threat > right_threat else "right"
+            if self.current_push_lane != target_lane:
+                if self.logger:
+                    self.logger.log(
+                        f"Both lanes under attack - focusing on {target_lane.upper()} "
+                        f"(higher threat: {max(left_threat, right_threat):.0f})"
+                    )
+                self.last_defended_lane = target_lane
+                return target_lane
+        # No significant threats - if we recently defended, start counter pushing
+        elif self.last_defended_lane and not self.is_counter_pushing:
+            if self.logger:
+                self.logger.log(
+                    f"Threat cleared on {self.last_defended_lane} - initiating counter push!"
+                )
+            self.is_counter_pushing = True
+            self.counter_push_cards = 0
+            return self.last_defended_lane
+
+        return None
+
     def should_switch_lane(self) -> bool:
         """Determine if strategy should switch push lanes based on push mode.
 
@@ -765,16 +852,18 @@ class BattleStrategy:
                 return True
             return False
         elif self.push_mode == "Counter Push":
-            # Opportunistic lane switching based on defense success
-            # TODO: Integrate with Roboflow model for opponent card detection
-            # For now, uses adaptive logic similar to "Adaptive" mode
-            if self.cards_played_this_push >= self.push_switch_threshold + 1:
+            # Reactive lane switching based on threat detection
+            # Detects enemy pushes and responds by defending, then counter-pushing
+            target_lane = self._evaluate_counter_push_lane()
+            if target_lane and target_lane != self.current_push_lane:
                 self.cards_played_this_push = 0
-                if random.random() > 0.7:  # 30% chance to switch (less than adaptive)
-                    self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
+                self.current_push_lane = target_lane
+                if self.is_counter_pushing:
                     if self.logger:
-                        self.logger.log(f"Counter-push switch to {self.current_push_lane} lane")
-                    return True
+                        self.logger.log(f"Counter-pushing on {self.current_push_lane} lane!")
+                elif self.logger:
+                    self.logger.log(f"Defending {self.current_push_lane} lane against enemy push")
+                return True
             return False
         else:  # Adaptive
             # Adaptively switch lanes based on situation
@@ -798,6 +887,9 @@ class BattleStrategy:
     def on_card_played(self):
         """Track when a card is played for push strategy management."""
         self.cards_played_this_push += 1
+        # Track cards played during counter push
+        if self.is_counter_pushing:
+            self.counter_push_cards += 1
         self.should_switch_lane()  # Check if we should switch lanes
 
 
