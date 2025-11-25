@@ -105,7 +105,7 @@ def check_if_in_battle(emulator):
         return bright_count >= bright_required and is_scoreboard_purple(pixels[-1])
 
     # Coordinates updated for November 2025 Clash Royale UI update
-    # First 4 coordinates should be bright (white) pixels from timer/score area
+    # First 4 coordinates (of 5) should be bright (white) pixels from timer/score area
     # Last coordinate should be purple pixel from scoreboard
     coords_1v1 = [(528, 49), (532, 77), (546, 52), (546, 77), (618, 115)]
     coords_2v2 = [(534, 53), (533, 80), (548, 52), (548, 76), (615, 114)]

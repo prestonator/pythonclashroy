@@ -78,6 +78,27 @@ def analyze_screenshot(image_path: str):
         purple = is_scoreboard_purple(pixel)
         print(f"  [{i}] ({y:3d}, {x:3d}): {pixel_to_str(pixel):20s} | Bright: {bright:5} | Purple: {purple}")
 
+    # Check new coordinates
+    print("\n\nChecking NEW COORDINATES:")
+    print("-" * 60)
+
+    coords_1v1_new = [(528, 49), (532, 77), (546, 52), (546, 77), (618, 115)]
+    coords_2v2_new = [(534, 53), (533, 80), (548, 52), (548, 76), (615, 114)]
+
+    print("\n1v1 New Coordinates:")
+    for i, (y, x) in enumerate(coords_1v1_new):
+        pixel = get_pixel(y, x)
+        bright = is_bright(pixel)
+        purple = is_scoreboard_purple(pixel)
+        print(f"  [{i}] ({y:3d}, {x:3d}): {pixel_to_str(pixel):20s} | Bright: {bright:5} | Purple: {purple}")
+
+    print("\n2v2 New Coordinates:")
+    for i, (y, x) in enumerate(coords_2v2_new):
+        pixel = get_pixel(y, x)
+        bright = is_bright(pixel)
+        purple = is_scoreboard_purple(pixel)
+        print(f"  [{i}] ({y:3d}, {x:3d}): {pixel_to_str(pixel):20s} | Bright: {bright:5} | Purple: {purple}")
+
     # Analyze top area where battle UI typically appears
     print("\n\nSCANNING TOP AREA FOR BATTLE UI ELEMENTS:")
     print("-" * 60)
@@ -139,6 +160,11 @@ def analyze_screenshot(image_path: str):
         if 0 <= y < height and 0 <= x < width:
             cv2.circle(img_vis, (x, y), 3, (0, 0, 255), -1)
 
+    # Mark new coordinates in yellow
+    for y, x in coords_1v1_new + coords_2v2_new:
+        if 0 <= y < height and 0 <= x < width:
+            cv2.circle(img_vis, (x, y), 3, (0, 255, 255), -1)
+
     # Mark bright pixels in green
     for y, x, _ in bright_coords[::5]:  # Sample to avoid clutter
         cv2.circle(img_vis, (x, y), 1, (0, 255, 0), -1)
@@ -150,6 +176,7 @@ def analyze_screenshot(image_path: str):
     cv2.imwrite(output_path, img_vis)
     print(f"\nVisualization saved to: {output_path}")
     print("  - Red circles: OLD coordinate positions")
+    print("  - Yellow circles: NEW coordinate positions")
     print("  - Green dots: Bright pixels found")
     print("  - Blue dots: Purple pixels found")
 
