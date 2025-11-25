@@ -770,7 +770,14 @@ class BattleStrategy:
         Returns:
             str | None: The lane to focus on ("left" or "right"), or None if no change needed
         """
-        left_threat, right_threat = detect_threat_level()
+        # Get threat levels with error handling
+        try:
+            left_threat, right_threat = detect_threat_level()
+        except (TypeError, ValueError):
+            # If threat detection fails, return None to maintain current lane
+            if self.logger:
+                self.logger.log("Threat detection failed, maintaining current lane")
+            return None
 
         # Determine which lane has a significant threat
         left_under_attack = left_threat > self.threat_threshold
@@ -798,14 +805,14 @@ class BattleStrategy:
 
         # Check for new threats to respond to
         if left_under_attack and not right_under_attack:
-            # Enemy is attacking left lane
+            # Enemy is attacking left lane - need to switch or mark as defended
             if self.current_push_lane != "left" or self.last_defended_lane != "left":
                 if self.logger:
                     self.logger.log("Threat detected on LEFT lane - switching to defend and counter")
                 self.last_defended_lane = "left"
                 return "left"
         elif right_under_attack and not left_under_attack:
-            # Enemy is attacking right lane
+            # Enemy is attacking right lane - need to switch or mark as defended
             if self.current_push_lane != "right" or self.last_defended_lane != "right":
                 if self.logger:
                     self.logger.log("Threat detected on RIGHT lane - switching to defend and counter")
@@ -814,7 +821,8 @@ class BattleStrategy:
         elif left_under_attack and right_under_attack:
             # Both lanes under attack - focus on the more threatened side
             target_lane = "left" if left_threat > right_threat else "right"
-            if self.current_push_lane != target_lane:
+            # Use consistent logic: switch if not on target or not defending target
+            if self.current_push_lane != target_lane or self.last_defended_lane != target_lane:
                 if self.logger:
                     self.logger.log(
                         f"Both lanes under attack - focusing on {target_lane.upper()} "
@@ -822,15 +830,16 @@ class BattleStrategy:
                     )
                 self.last_defended_lane = target_lane
                 return target_lane
-        # No significant threats - if we recently defended, start counter pushing
-        elif self.last_defended_lane and not self.is_counter_pushing:
-            if self.logger:
-                self.logger.log(
-                    f"Threat cleared on {self.last_defended_lane} - initiating counter push!"
-                )
-            self.is_counter_pushing = True
-            self.counter_push_cards = 0
-            return self.last_defended_lane
+        elif not left_under_attack and not right_under_attack:
+            # No significant threats - if we recently defended, start counter pushing
+            if self.last_defended_lane and not self.is_counter_pushing:
+                if self.logger:
+                    self.logger.log(
+                        f"Threat cleared on {self.last_defended_lane} - initiating counter push!"
+                    )
+                self.is_counter_pushing = True
+                self.counter_push_cards = 0
+                return self.last_defended_lane
 
         return None
 
