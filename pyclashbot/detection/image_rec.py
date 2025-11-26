@@ -215,6 +215,11 @@ def region_is_color(emulator, region: list, color: tuple[int, int, int]) -> bool
     return True
 
 
+# Threshold for switching from simple loop to numpy vectorized comparison
+# Below this threshold, simple loop is faster due to numpy overhead
+NUMPY_OPTIMIZATION_THRESHOLD = 10
+
+
 def all_pixels_are_equal(
     pixels_1: list,
     pixels_2: list,
@@ -231,9 +236,10 @@ def all_pixels_are_equal(
         bool: True if all pixels match within tolerance
     """
     # Use numpy for vectorized comparison (more efficient for large lists)
-    if len(pixels_1) > 10:
-        arr1 = np.array(pixels_1, dtype=np.int16)
-        arr2 = np.array(pixels_2, dtype=np.int16)
+    if len(pixels_1) > NUMPY_OPTIMIZATION_THRESHOLD:
+        # Use int32 to safely handle all pixel value ranges (0-255 typical, but allow for edge cases)
+        arr1 = np.array(pixels_1, dtype=np.int32)
+        arr2 = np.array(pixels_2, dtype=np.int32)
         diff = np.abs(arr1 - arr2)
         return bool(np.all(diff < tol))
 

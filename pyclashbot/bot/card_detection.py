@@ -1,3 +1,4 @@
+import logging
 import random
 import time
 from collections import Counter
@@ -6691,8 +6692,7 @@ def detect_tower_threats(emulator, detector=None):
     except Exception as e:
         # Log errors for debugging while gracefully handling failures
         # This is an enhancement feature, so failures shouldn't break the bot
-        if detector and hasattr(detector, 'logger'):
-            detector.logger.log(f"Threat detection failed: {e}")
+        logging.warning(f"Threat detection failed: {e}")
 
     return result
 
