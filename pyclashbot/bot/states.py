@@ -48,6 +48,28 @@ def handle_state_failure(logger: Logger, state_name: str, function_name: str, er
 CLASH_MAIN_DEADSPACE_COORD = (20, 520)
 
 
+def get_enabled_fight_modes(job_list) -> list[str]:
+    """Get list of enabled fight modes from job configuration.
+
+    This helper function consolidates the repeated pattern of building
+    the enabled_modes list from job_list toggles.
+
+    Args:
+        job_list: Dictionary containing job configuration toggles
+
+    Returns:
+        List of enabled fight mode names
+    """
+    enabled_modes = []
+    if job_list.get(UIField.CLASSIC_1V1_USER_TOGGLE, False):
+        enabled_modes.append("Classic 1v1")
+    if job_list.get(UIField.CLASSIC_2V2_USER_TOGGLE, False):
+        enabled_modes.append("Classic 2v2")
+    if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
+        enabled_modes.append("Trophy Road")
+    return enabled_modes
+
+
 class BattleModeState:
     """Class to track battle mode state without global variables."""
 
@@ -57,14 +79,7 @@ class BattleModeState:
 
     def get_next_fight_mode(self, job_list):
         """Get the next fight mode to use, cycling through enabled modes."""
-        # Get all enabled fight modes
-        enabled_modes = []
-        if job_list.get(UIField.CLASSIC_1V1_USER_TOGGLE, False):
-            enabled_modes.append("Classic 1v1")
-        if job_list.get(UIField.CLASSIC_2V2_USER_TOGGLE, False):
-            enabled_modes.append("Classic 2v2")
-        if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
-            enabled_modes.append("Trophy Road")
+        enabled_modes = get_enabled_fight_modes(job_list)
 
         if not enabled_modes:
             return None
@@ -84,14 +99,7 @@ def get_next_fight_mode(job_list):
     """
     global fight_mode_cycle_index
 
-    # Get all enabled fight modes
-    enabled_modes = []
-    if job_list.get(UIField.CLASSIC_1V1_USER_TOGGLE, False):
-        enabled_modes.append("Classic 1v1")
-    if job_list.get(UIField.CLASSIC_2V2_USER_TOGGLE, False):
-        enabled_modes.append("Classic 2v2")
-    if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
-        enabled_modes.append("Trophy Road")
+    enabled_modes = get_enabled_fight_modes(job_list)
 
     if not enabled_modes:
         return None
@@ -368,14 +376,7 @@ def state_tree(
         return state_order.next_state(state)
 
     if state == "select_battle_mode":
-        # Get all enabled fight modes
-        enabled_modes = []
-        if job_list.get(UIField.CLASSIC_1V1_USER_TOGGLE, False):
-            enabled_modes.append("Classic 1v1")
-        if job_list.get(UIField.CLASSIC_2V2_USER_TOGGLE, False):
-            enabled_modes.append("Classic 2v2")
-        if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
-            enabled_modes.append("Trophy Road")
+        enabled_modes = get_enabled_fight_modes(job_list)
 
         if not enabled_modes:
             logger.log("No fight modes are enabled. Skipping this state")

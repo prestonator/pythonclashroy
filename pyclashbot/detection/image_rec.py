@@ -215,6 +215,11 @@ def region_is_color(emulator, region: list, color: tuple[int, int, int]) -> bool
     return True
 
 
+# Threshold for switching from simple loop to numpy vectorized comparison
+# Below this threshold, simple loop is faster due to numpy overhead
+NUMPY_OPTIMIZATION_THRESHOLD = 10
+
+
 def all_pixels_are_equal(
     pixels_1: list,
     pixels_2: list,
@@ -230,8 +235,44 @@ def all_pixels_are_equal(
     Returns:
         bool: True if all pixels match within tolerance
     """
+    # Use numpy for vectorized comparison (more efficient for large lists)
+    if len(pixels_1) > NUMPY_OPTIMIZATION_THRESHOLD:
+        # Use int32 to safely handle all pixel value ranges (0-255 typical, but allow for edge cases)
+        arr1 = np.array(pixels_1, dtype=np.int32)
+        arr2 = np.array(pixels_2, dtype=np.int32)
+        diff = np.abs(arr1 - arr2)
+        return bool(np.all(diff < tol))
+
+    # Fall back to simple loop for small lists (avoids numpy overhead)
     for pixel1, pixel2 in zip(pixels_1, pixels_2):
         if not pixel_is_equal(pixel1, pixel2, tol):
+            return False
+    return True
+
+
+def check_pixels_against_colors(
+    pixels: list,
+    colors: list,
+    tol: float = 25,
+) -> bool:
+    """Check if all pixels match their corresponding expected colors within tolerance.
+
+    This is a common pattern used across multiple modules for UI state detection.
+    Refactored to avoid code duplication.
+
+    Args:
+        pixels: list of pixel values [r, g, b] from screenshot
+        colors: list of expected color values [r, g, b]
+        tol: color tolerance (default 25)
+
+    Returns:
+        bool: True if all pixels match their expected colors within tolerance
+    """
+    if len(pixels) != len(colors):
+        return False
+
+    for pixel, color in zip(pixels, colors):
+        if not pixel_is_equal(pixel, color, tol):
             return False
     return True
 

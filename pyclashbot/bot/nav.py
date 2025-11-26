@@ -5,8 +5,8 @@ from typing import Literal
 
 from pyclashbot.detection.image_rec import (
     all_pixels_are_equal,
+    check_pixels_against_colors,
     find_image,
-    pixel_is_equal,
 )
 from pyclashbot.utils.logger import Logger
 
@@ -144,11 +144,7 @@ def check_for_trophy_reward_menu(emulator) -> bool:
         [253, 135, 39],
     ]
 
-    for i, pixel in enumerate(pixels):
-        if not pixel_is_equal(pixel, colors[i], tol=25):
-            return False
-
-    return True
+    return check_pixels_against_colors(pixels, colors, tol=25)
 
 
 def handle_trophy_reward_menu(
@@ -453,10 +449,7 @@ def check_if_on_battle_log_page(emulator) -> bool:
         [124, 106, 99],
     ]
 
-    for i, p in enumerate(pixels):
-        if not pixel_is_equal(p, colors[i], tol=25):
-            return False
-    return True
+    return check_pixels_against_colors(pixels, colors, tol=25)
 
 
 def check_if_on_clash_main_burger_button_options_menu(emulator) -> bool:
@@ -483,10 +476,7 @@ def check_if_on_clash_main_burger_button_options_menu(emulator) -> bool:
         [255, 175, 78],
         [255, 175, 78],
     ]
-    for i, color in enumerate(colors):
-        if not pixel_is_equal(pixels[i], color, tol=25):
-            return False
-    return True
+    return check_pixels_against_colors(pixels, colors, tol=25)
 
 
 def wait_for_clash_main_burger_button_options_menu(

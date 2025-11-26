@@ -9,7 +9,7 @@ from pyclashbot.bot.nav import (
     get_to_card_page_from_clash_main,
     wait_for_clash_main_menu,
 )
-from pyclashbot.detection.image_rec import compare_images, pixel_is_equal
+from pyclashbot.detection.image_rec import check_pixels_against_colors, compare_images
 from pyclashbot.utils.image_handler import open_from_path
 from pyclashbot.utils.logger import Logger
 
@@ -149,10 +149,7 @@ def check_for_inventory_full_popup(emulator):
         [241, 165, 74],
         [255, 175, 78],
     ]
-    for i, c in enumerate(colors):
-        if not pixel_is_equal(c, pixels[i], tol=15):
-            return False
-    return True
+    return check_pixels_against_colors(pixels, colors, tol=15)
 
 
 if __name__ == "__main__":

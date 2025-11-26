@@ -63,17 +63,17 @@ class WorkerThread(PausableThread):
             model_type = model_config.get('model_type', 'unknown')
             workflow_id = model_config.get('roboflow_workflow_id')
             model_id = model_config.get('roboflow_model_id')
-            
+
             if workflow_id:
                 self.logger.log(f"✓ Roboflow Workflow initialized: {workflow_id}")
-                self.logger.log(f"  Using workflow-based detection pipeline")
+                self.logger.log("  Using workflow-based detection pipeline")
             elif model_id:
                 self.logger.log(f"✓ Roboflow model initialized: {model_id}")
             else:
                 self.logger.log(f"✓ Roboflow connection initialized: Using {model_type}")
-                
+
             self.logger.log(f"  Confidence threshold: {model_config.get('confidence_threshold', 0.7)}")
-            
+
             # Check if model is actually available
             from pyclashbot.bot.card_detection import get_card_detector  # noqa: PLC0415
             detector = get_card_detector()

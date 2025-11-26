@@ -24,6 +24,7 @@ from pyclashbot.bot.nav import (
 from pyclashbot.bot.recorder import save_play, save_win_loss
 from pyclashbot.detection.image_rec import (
     check_line_for_color,
+    check_pixels_against_colors,
     find_image,
     pixel_is_equal,
 )
@@ -428,13 +429,7 @@ def find_post_battle_button(emulator) -> tuple[int, int] | None:
         [255, 255, 255],
     ]
 
-    pixel_match = True
-    for i, p in enumerate(pixels):
-        if not pixel_is_equal(p, colors[i], tol=20):
-            pixel_match = False
-            break
-
-    if pixel_match:
+    if check_pixels_against_colors(pixels, colors, tol=20):
         return (200, 550)
 
     # Method 2: Image recognition for OK button
