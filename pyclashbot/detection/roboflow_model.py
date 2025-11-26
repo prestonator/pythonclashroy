@@ -37,7 +37,7 @@ class RoboflowModel(DetectionModel):
             workflow_id: Roboflow workflow ID (e.g., 'my-workspace/my-workflow') - for workflow-based inference
             confidence: Minimum confidence threshold for predictions (0.0-1.0)
             **kwargs: Additional inference parameters
-            
+
         Note: Provide either model_id OR workflow_id, not both. If both provided, workflow_id takes precedence.
         """
         self.api_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
@@ -46,7 +46,7 @@ class RoboflowModel(DetectionModel):
         self.confidence = confidence
         self.inference_client = None
         self._available = False
-        
+
         # Validate that workflow_id or model_id is provided, but warn if both
         if workflow_id and model_id:
             print("Warning: Both workflow_id and model_id provided. Using workflow_id, ignoring model_id.")
@@ -120,13 +120,13 @@ class RoboflowModel(DetectionModel):
         except Exception as e:
             print(f"Warning: Roboflow inference failed: {e}")
             return []
-    
+
     def _predict_with_model(self, image_data: Any) -> list[dict[str, Any]]:
         """Run direct model inference.
-        
+
         Args:
             image_data: Image data as numpy array
-            
+
         Returns:
             list[dict]: Standardized prediction results
         """
@@ -157,20 +157,20 @@ class RoboflowModel(DetectionModel):
                 )
 
         return predictions
-    
+
     def _predict_with_workflow(self, image_data: Any, **kwargs) -> list[dict[str, Any]]:
         """Run workflow-based inference.
-        
+
         Workflows allow chaining multiple models and logic together for
         more sophisticated detection pipelines.
-        
+
         Args:
             image_data: Image data as numpy array
             **kwargs: Additional workflow parameters
-            
+
         Returns:
             list[dict]: Standardized prediction results
-            
+
         Raises:
             ValueError: If workflow_id format is invalid
         """
@@ -184,11 +184,11 @@ class RoboflowModel(DetectionModel):
             )
             print(f"Error: {error_msg}")
             raise ValueError(error_msg)
-        
+
         parts = self.workflow_id.split('/', 1)
         workspace_name = parts[0]
         workflow_name = parts[1]
-        
+
         # Run workflow inference
         result = self.inference_client.run_workflow(
             workspace_name=workspace_name,
@@ -200,20 +200,20 @@ class RoboflowModel(DetectionModel):
         # Parse workflow results
         # Workflows can return complex nested results, try to extract predictions
         predictions = []
-        
+
         if result and isinstance(result, dict):
             # Try to find predictions in common workflow output formats
             # Format 1: Direct predictions array
             if "predictions" in result:
                 for pred in result["predictions"]:
                     predictions.append(self._standardize_prediction(pred))
-            
+
             # Format 2: Nested in output
             elif "output" in result and isinstance(result["output"], dict):
                 if "predictions" in result["output"]:
                     for pred in result["output"]["predictions"]:
                         predictions.append(self._standardize_prediction(pred))
-            
+
             # Format 3: Results array with predictions
             elif "results" in result:
                 for res in result["results"]:
@@ -222,13 +222,13 @@ class RoboflowModel(DetectionModel):
                             predictions.append(self._standardize_prediction(pred))
 
         return predictions
-    
+
     def _standardize_prediction(self, pred: dict) -> dict[str, Any]:
         """Standardize a prediction to our common format.
-        
+
         Args:
             pred: Raw prediction dict from Roboflow
-            
+
         Returns:
             dict: Standardized prediction
         """
@@ -244,23 +244,23 @@ class RoboflowModel(DetectionModel):
             "center": (pred.get("x", 0), pred.get("y", 0)),
             "raw": pred,
         }
-    
+
     def detect_battlefield_objects(self, image: Any, region: tuple[int, int, int, int] | None = None) -> list[dict[str, Any]]:
         """Detect objects on the battlefield (towers, troops, etc.).
-        
+
         This is useful for detecting enemy units, tower health, and battlefield state
         to make better strategic decisions.
-        
+
         Args:
             image: Full battlefield screenshot as numpy array
             region: Optional (x1, y1, x2, y2) region to analyze, None for full image
-            
+
         Returns:
             list[dict]: List of detected objects with their positions and classifications
         """
         if not self.is_available():
             return []
-        
+
         # Extract region if specified
         if region and isinstance(image, np.ndarray):
             x1, y1, x2, y2 = region
@@ -268,10 +268,10 @@ class RoboflowModel(DetectionModel):
             offset = (x1, y1)
         else:
             offset = (0, 0)
-        
+
         # Run detection
         predictions = self.predict(image)
-        
+
         # Adjust bounding boxes if we analyzed a sub-region
         if offset != (0, 0):
             for pred in predictions:
@@ -283,7 +283,7 @@ class RoboflowModel(DetectionModel):
                         pred["center"][0] + offset[0],
                         pred["center"][1] + offset[1]
                     )
-        
+
         return predictions
 
     def is_available(self) -> bool:

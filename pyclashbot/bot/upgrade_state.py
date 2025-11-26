@@ -1,4 +1,5 @@
 import time
+from collections import Counter
 from typing import Any
 
 from pyclashbot.bot.nav import (
@@ -151,16 +152,11 @@ def get_upgradable_cards(emulator):
 
     for i, region in enumerate(regions):
         pixels = get_region_pixels(region)
-
         colors = [classify_color(pixel) for pixel in pixels]
+        # Use Counter for more efficient counting
+        color_counts = Counter(colors)
 
-        color2count = {}
-        for color in colors:
-            if color not in color2count:
-                color2count[color] = 0
-            color2count[color] += 1
-
-        if "green" in color2count and color2count["green"] > 20:
+        if color_counts.get("green", 0) > 20:
             good_indicies.append(i)
 
     return good_indicies

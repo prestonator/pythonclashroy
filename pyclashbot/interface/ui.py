@@ -927,7 +927,7 @@ class PyClashBotUI(ttk.Window):
         self._trace_variable(self.roboflow_workflow_id_var)
         self._register_config_widget(UIField.ROBOFLOW_WORKFLOW_ID.value, workflow_id_entry)
         ToolTip(
-            workflow_id_entry, 
+            workflow_id_entry,
             "Format: workspace/workflow-id. Use workflows for multi-model pipelines. Leave blank to use Model ID above. See QUICKSTART_MODELS.md for recommendations."
         )
 
