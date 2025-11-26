@@ -8,6 +8,7 @@ from typing import Literal
 from pyclashbot.bot.card_detection import (
     check_which_cards_are_available,
     create_default_bridge_iar,
+    detect_threat_level,
     get_play_coords_for_card,
     switch_side,
 )
@@ -679,6 +680,12 @@ class BattleStrategy:
         "medium": 0.75,    # Below 75% - tower is weakened
     }
 
+    # Health scores for tower advantage calculation
+    HEALTH_SCORES = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
+
+    # Factor for detecting successful defense (threat reduction threshold)
+    THREAT_REDUCTION_FACTOR = 0.5
+
     def __init__(
         self,
         elixir_mode: str = "Adaptive",
@@ -776,8 +783,14 @@ class BattleStrategy:
             threshold: Minimum threat level to consider significant
         """
         # Detect if we just defended an attack (threat dropped significantly)
-        left_defended = self.last_threat_levels["left"] > threshold and left_threat < threshold * 0.5
-        right_defended = self.last_threat_levels["right"] > threshold and right_threat < threshold * 0.5
+        left_defended = (
+            self.last_threat_levels["left"] > threshold
+            and left_threat < threshold * self.THREAT_REDUCTION_FACTOR
+        )
+        right_defended = (
+            self.last_threat_levels["right"] > threshold
+            and right_threat < threshold * self.THREAT_REDUCTION_FACTOR
+        )
 
         if left_defended:
             self.last_defended_lane = "left"
@@ -819,11 +832,9 @@ class BattleStrategy:
         self.our_tower_health = {"left": our_left, "right": our_right, "king": our_king}
         self.enemy_tower_health = {"left": enemy_left, "right": enemy_right, "king": enemy_king}
 
-        # Calculate tower advantage (simple scoring)
-        health_scores = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
-
-        our_score = sum(health_scores.get(h, 4) for h in self.our_tower_health.values())
-        enemy_score = sum(health_scores.get(h, 4) for h in self.enemy_tower_health.values())
+        # Calculate tower advantage using class constant
+        our_score = sum(self.HEALTH_SCORES.get(h, 4) for h in self.our_tower_health.values())
+        enemy_score = sum(self.HEALTH_SCORES.get(h, 4) for h in self.enemy_tower_health.values())
         self.tower_advantage = our_score - enemy_score
 
         if self.logger and self.tower_advantage != 0:
@@ -837,10 +848,8 @@ class BattleStrategy:
             str: "left" or "right" - the best lane to focus attacks on
         """
         # Prefer attacking the weaker enemy tower
-        health_scores = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
-
-        left_score = health_scores.get(self.enemy_tower_health["left"], 4)
-        right_score = health_scores.get(self.enemy_tower_health["right"], 4)
+        left_score = self.HEALTH_SCORES.get(self.enemy_tower_health["left"], 4)
+        right_score = self.HEALTH_SCORES.get(self.enemy_tower_health["right"], 4)
 
         # If one tower is destroyed, attack the other
         if left_score == 0:
@@ -863,10 +872,8 @@ class BattleStrategy:
         Returns:
             str | None: "left" or "right" if a lane needs defense, None otherwise
         """
-        health_scores = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
-
-        left_score = health_scores.get(self.our_tower_health["left"], 4)
-        right_score = health_scores.get(self.our_tower_health["right"], 4)
+        left_score = self.HEALTH_SCORES.get(self.our_tower_health["left"], 4)
+        right_score = self.HEALTH_SCORES.get(self.our_tower_health["right"], 4)
 
         # Prioritize defending critically weak towers
         if left_score <= 1 and left_score < right_score:
@@ -877,6 +884,29 @@ class BattleStrategy:
         # No urgent defense needed
         return None
 
+    def _adjust_weights(self, weights: list[float], boost_start: int, boost_factor: float) -> list[float]:
+        """Adjust elixir weights and normalize them.
+
+        Args:
+            weights: List of elixir weights to adjust
+            boost_start: Index from which to apply boost factor (0-based)
+            boost_factor: Factor to boost weights (>1 for boosting later, <1 for earlier)
+
+        Returns:
+            Normalized list of adjusted weights
+        """
+        reduction_factor = 1.0 / boost_factor if boost_factor > 1 else boost_factor * 2
+        adjusted = []
+        for i, w in enumerate(weights):
+            if i < boost_start:
+                adjusted.append(w * reduction_factor)
+            else:
+                adjusted.append(w * boost_factor)
+
+        # Normalize
+        total = sum(adjusted)
+        return [w / total for w in adjusted] if total > 0 else adjusted
+
     def select_elixir_amount(self):
         """Select elixir amount to wait for based on current battle phase, strategy, and tower health."""
         phase = self.get_battle_phase()
@@ -886,17 +916,11 @@ class BattleStrategy:
         if self.tower_advantage < -2:
             # We're behind - be more conservative, wait for more elixir
             # Shift weights toward higher elixir amounts
-            weights = [w * 0.5 for w in weights[:3]] + [w * 1.5 for w in weights[3:]]
-            # Normalize weights
-            total = sum(weights)
-            weights = [w / total for w in weights]
+            weights = self._adjust_weights(weights, boost_start=3, boost_factor=1.5)
         elif self.tower_advantage > 2:
             # We're ahead - can be more aggressive
             # Shift weights toward lower elixir amounts
-            weights = [w * 1.5 for w in weights[:4]] + [w * 0.5 for w in weights[4:]]
-            # Normalize weights
-            total = sum(weights)
-            weights = [w / total for w in weights]
+            weights = self._adjust_weights(weights, boost_start=4, boost_factor=0.5)
 
         selected = random.choices(self.elixir_amounts, weights=weights, k=1)[0]
 
@@ -1100,7 +1124,7 @@ def _fight_loop(
 
         # Periodically update threat levels for counter-push detection
         if loop_iteration % strategy_update_interval == 0:
-            left_threat, right_threat = switch_side()
+            left_threat, right_threat = detect_threat_level()
             battle_strategy.update_threat_levels(left_threat, right_threat)
 
         # Get elixir amount and thresholds based on current battle phase
