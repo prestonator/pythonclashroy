@@ -70,6 +70,9 @@ class UIField(StrEnum):
     STRATEGY_ELIXIR_MODE = "strategy_elixir_mode"
     STRATEGY_PUSH_MODE = "strategy_push_mode"
     STRATEGY_AGGRESSION_LEVEL = "strategy_aggression_level"
+    # Advanced Strategy Settings
+    STRATEGY_TOWER_HEALTH_AWARE = "strategy_tower_health_aware"
+    STRATEGY_PLACEMENT_MODE = "strategy_placement_mode"
 
 
 BATTLE_STAT_LABELS: dict[StatField, str] = {

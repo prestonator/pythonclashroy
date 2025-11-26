@@ -138,6 +138,12 @@ STRATEGY_SETTINGS = [
         values=["Defensive", "Moderate", "Aggressive", "Very Aggressive"],
         default="Moderate",
     ),
+    ComboConfig(
+        key=UIField.STRATEGY_PLACEMENT_MODE,
+        label="Placement Mode",
+        values=["Auto (Recommended)", "Offensive", "Defensive", "Balanced"],
+        default="Auto (Recommended)",
+    ),
 ]
 
 # All user configuration keys (auto-generated from configs)
@@ -161,6 +167,8 @@ USER_CONFIG_KEYS = (
         UIField.STRATEGY_ELIXIR_MODE.value,
         UIField.STRATEGY_PUSH_MODE.value,
         UIField.STRATEGY_AGGRESSION_LEVEL.value,
+        UIField.STRATEGY_TOWER_HEALTH_AWARE.value,
+        UIField.STRATEGY_PLACEMENT_MODE.value,
     ]
 )
 
