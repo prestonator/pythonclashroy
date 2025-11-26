@@ -686,6 +686,12 @@ class BattleStrategy:
     # Factor for detecting successful defense (threat reduction threshold)
     THREAT_REDUCTION_FACTOR = 0.5
 
+    # Default threat detection threshold for counter-push activation
+    DEFAULT_THREAT_THRESHOLD = 5000
+
+    # Interval (in fight loop iterations) between threat level updates
+    THREAT_UPDATE_INTERVAL = 3
+
     def __init__(
         self,
         elixir_mode: str = "Adaptive",
@@ -771,7 +777,7 @@ class BattleStrategy:
         else:
             return "triple"
 
-    def update_threat_levels(self, left_threat: float, right_threat: float, threshold: float = 5000):
+    def update_threat_levels(self, left_threat: float, right_threat: float, threshold: float | None = None):
         """Update threat levels and detect defense opportunities.
 
         This method tracks changes in threat levels to detect when we've
@@ -780,8 +786,11 @@ class BattleStrategy:
         Args:
             left_threat: Current threat level on left lane
             right_threat: Current threat level on right lane
-            threshold: Minimum threat level to consider significant
+            threshold: Minimum threat level to consider significant (defaults to DEFAULT_THREAT_THRESHOLD)
         """
+        if threshold is None:
+            threshold = self.DEFAULT_THREAT_THRESHOLD
+
         # Detect if we just defended an attack (threat dropped significantly)
         left_defended = (
             self.last_threat_levels["left"] > threshold
@@ -1117,13 +1126,12 @@ def _fight_loop(
 
     # Track iterations for periodic strategy updates
     loop_iteration = 0
-    strategy_update_interval = 3  # Update threat levels every N iterations
 
     while check_for_in_battle_with_delay(emulator):
         loop_iteration += 1
 
         # Periodically update threat levels for counter-push detection
-        if loop_iteration % strategy_update_interval == 0:
+        if loop_iteration % BattleStrategy.THREAT_UPDATE_INTERVAL == 0:
             left_threat, right_threat = detect_threat_level()
             battle_strategy.update_threat_levels(left_threat, right_threat)
 

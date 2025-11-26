@@ -6466,12 +6466,17 @@ def get_play_coords_for_card(
 
 
 # Offensive placement constants for aggressive pushing
-OFFENSIVE_Y_MIN = 250  # Minimum Y for offensive placement (closer to enemy)
-OFFENSIVE_Y_MAX = 320  # Maximum Y for offensive placement
-OFFENSIVE_LEFT_X_MIN = 60   # X range for left side offensive
-OFFENSIVE_LEFT_X_MAX = 180
-OFFENSIVE_RIGHT_X_MIN = 240  # X range for right side offensive
-OFFENSIVE_RIGHT_X_MAX = 360
+# These coordinates place troops at or near the bridge to apply immediate pressure
+# Game field dimensions: approximately 420x640 pixels
+# Bridge area Y range: ~250-320 (center of field, near enemy side)
+# Left lane X range: ~60-180 (left third of field)
+# Right lane X range: ~240-360 (right third of field)
+OFFENSIVE_Y_MIN = 250  # Minimum Y coordinate - at the bridge line
+OFFENSIVE_Y_MAX = 320  # Maximum Y coordinate - slightly past bridge toward center
+OFFENSIVE_LEFT_X_MIN = 60   # Left boundary of left lane offensive zone
+OFFENSIVE_LEFT_X_MAX = 180  # Right boundary of left lane offensive zone
+OFFENSIVE_RIGHT_X_MIN = 240  # Left boundary of right lane offensive zone
+OFFENSIVE_RIGHT_X_MAX = 360  # Right boundary of right lane offensive zone
 
 
 def calculate_play_coords(
