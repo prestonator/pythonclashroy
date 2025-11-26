@@ -69,14 +69,17 @@ Controls how the bot distributes card plays across lanes:
 - Forces opponent to defend both sides
 
 #### Counter Push
-- Reactive lane selection based on defense
-- (Future enhancement: Will integrate with opponent card detection via Roboflow model)
-- Best for: Counter-attack strategies
-- Currently uses adaptive logic as placeholder
+- Detects when defense is successful (threat level drops significantly)
+- Automatically pushes in the lane where defense just occurred
+- Targets weaker enemy towers when no counter-push opportunity exists
+- Best for: Counter-attack strategies, beatdown decks
+- Leverages surviving troops from defense for immediate offense
 
 #### Adaptive (Default)
-- Smart lane selection based on situation
-- 40% chance to switch after 4 cards
+- Smart lane selection based on tower health analysis
+- Prioritizes defending weak towers when health is critical
+- Targets weaker enemy towers for attacks
+- 40% chance to switch after 4 cards if no strategic reason to switch
 - Best for: General purpose, flexible strategies
 - Balances single and dual lane approaches
 
@@ -120,6 +123,45 @@ Controls timing thresholds for card plays (in milliseconds):
   - Triple: 1000ms / 2500ms
 - Best for: Ultra-fast cycle decks
 
+## Tower Health Awareness
+
+The strategy system tracks relative tower health to make smarter decisions:
+
+### Health States
+Towers are classified into health states:
+- **High**: Above 75% health
+- **Medium**: 50-75% health
+- **Low**: 25-50% health
+- **Critical**: Below 25% health
+- **Destroyed**: Tower is destroyed
+
+### Strategic Adjustments
+
+Based on tower health, the bot automatically adjusts:
+
+1. **Elixir Management**: When behind on tower health, plays more conservatively (higher elixir waits). When ahead, plays more aggressively.
+
+2. **Placement Mode**: 
+   - **Defensive**: Prioritizes placing troops closer to our towers when under threat
+   - **Offensive**: Places troops at the bridge for aggressive pushes when ahead
+   - **Balanced**: Adapts based on current threat detection
+
+3. **Lane Selection**: 
+   - Prioritizes attacking weaker enemy towers
+   - Defends lanes where our towers are critical
+   - Counter-push strategy triggers when defense succeeds
+
+### Tower Advantage Calculation
+
+The bot calculates a "tower advantage" score:
+- Positive score = we're winning (our towers healthier)
+- Negative score = we're losing (enemy towers healthier)
+
+This affects:
+- Elixir wait times (±20% adjustment)
+- Card placement (offensive vs defensive)
+- Lane switching decisions
+
 ## Battle Phases
 
 The strategy system recognizes four battle phases:
@@ -143,8 +185,10 @@ BattleStrategy initialized with:
 
 Battle started with Aggressive elixir, Dual Lane push, Very Aggressive aggression
 
-Phase: single, Selected elixir target: 4 (Mode: Aggressive)
+Phase: single, Selected elixir target: 4 (Mode: Aggressive, Advantage: 2)
 Phase: single, Thresholds: (3000, 6000) (Aggression: Very Aggressive)
+Defense successful on LEFT lane - counter-push opportunity!
+Counter-push activated on left lane!
 Switching to right lane (Dual Lane strategy)
 ```
 

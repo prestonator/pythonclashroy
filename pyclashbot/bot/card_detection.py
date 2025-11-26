@@ -6434,7 +6434,22 @@ def get_card_group(card_id) -> str:
     return CARD_TO_GROUP.get(card_id, "No group")
 
 
-def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float = 0, detector=None):
+def get_play_coords_for_card(
+    emulator, logger, card_index, elapsed_time: float = 0, detector=None, placement_mode: str = "balanced"
+):
+    """Get play coordinates for a specific card.
+
+    Args:
+        emulator: Emulator instance
+        logger: Logger instance
+        card_index: Index of card in hand (0-3)
+        elapsed_time: Seconds elapsed in battle
+        detector: Optional card detector instance
+        placement_mode: "offensive", "defensive", or "balanced" - affects card placement strategy
+
+    Returns:
+        tuple: (card_identity, play_coordinates)
+    """
     # get the ID of this card(ram_rider, zap, etc)
     id_cards_start_time = time.time()
     identity = identify_hand_cards(emulator, card_index, detector=detector, logger=logger)
@@ -6445,20 +6460,35 @@ def get_play_coords_for_card(emulator, logger, card_index, elapsed_time: float =
     group = get_card_group(identity)
 
     # get the play coords of this grouping
-    coords = calculate_play_coords(group, play_side, elapsed_time)
+    coords = calculate_play_coords(group, play_side, elapsed_time, placement_mode)
 
     return identity, coords
 
 
-def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time: float = 0):
-    """Calculate play coordinates for a card based on grouping, side, and time.
+# Offensive placement constants for aggressive pushing
+OFFENSIVE_Y_MIN = 250  # Minimum Y for offensive placement (closer to enemy)
+OFFENSIVE_Y_MAX = 320  # Maximum Y for offensive placement
+OFFENSIVE_LEFT_X_MIN = 60   # X range for left side offensive
+OFFENSIVE_LEFT_X_MAX = 180
+OFFENSIVE_RIGHT_X_MIN = 240  # X range for right side offensive
+OFFENSIVE_RIGHT_X_MAX = 360
 
-    Enhanced to detect threats and respond defensively when enemy units are near our towers.
+
+def calculate_play_coords(
+    card_grouping: str, side_preference: str, elapsed_time: float = 0, placement_mode: str = "balanced"
+):
+    """Calculate play coordinates for a card based on grouping, side, time, and placement strategy.
+
+    Enhanced with placement mode awareness for strategic positioning:
+    - "offensive": Places cards more aggressively toward enemy territory
+    - "defensive": Places cards to protect our towers
+    - "balanced": Standard placement based on threat detection
 
     Args:
         card_grouping: Card group type
         side_preference: "left" or "right" preferred side
         elapsed_time: Seconds elapsed in battle
+        placement_mode: "offensive", "defensive", or "balanced" placement strategy
 
     Note: Threat detection requires battle_iar to be initialized by check_which_cards_are_available().
     Until then, detect_threat_level() returns (0, 0), effectively disabling defensive placement
@@ -6473,9 +6503,24 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
     under_threat_left = left_threat > THREAT_DETECTION_THRESHOLD
     under_threat_right = right_threat > THREAT_DETECTION_THRESHOLD
 
+    # Handle placement mode - affects where we place cards
+    if placement_mode == "defensive":
+        # In defensive mode, prioritize protecting our towers
+        if card_grouping not in NON_DEFENSIVE_CARD_TYPES:
+            defensive_coord = get_defensive_coords(side_preference, card_grouping)
+            if defensive_coord:
+                return defensive_coord
+
+    elif placement_mode == "offensive":
+        # In offensive mode, push cards toward enemy
+        if card_grouping not in NON_DEFENSIVE_CARD_TYPES and card_grouping not in NATURALLY_DEFENSIVE_CARD_TYPES:
+            offensive_coord = get_offensive_coords(side_preference, card_grouping)
+            if offensive_coord:
+                return offensive_coord
+
     # If we're under threat on the preferred side and this is a card that can defend
     # (not a spell or building), place it defensively
-    if card_grouping not in NON_DEFENSIVE_CARD_TYPES:
+    elif card_grouping not in NON_DEFENSIVE_CARD_TYPES:
         if (side_preference == "left" and under_threat_left) or (side_preference == "right" and under_threat_right):
             # Use defensive placement
             defensive_coord = get_defensive_coords(side_preference, card_grouping)
@@ -6484,15 +6529,15 @@ def calculate_play_coords(card_grouping: str, side_preference: str, elapsed_time
 
     # if there is a dedicated coordinate for this card
     if card_grouping == "No group":
-        if elapsed_time < 12:  # Less than 5 seconds
+        if elapsed_time < 12:  # Less than 12 seconds
             if side_preference == "left":
                 return (random.randint(60, 206), random.randint(441, 456))
             return (random.randint(210, 351), random.randint(441, 456))
-        if elapsed_time < 80:  # Less than 2 minutes
+        if elapsed_time < 80:  # Less than 80 seconds
             if side_preference == "left":
                 return (random.randint(60, 206), random.randint(360, 456))
             return (random.randint(210, 351), random.randint(360, 456))
-        # 2 minutes or more
+        # 80 seconds or more - can push more aggressively
         if side_preference == "left":
             return (random.randint(60, 206), random.randint(281, 456))
         return (random.randint(210, 351), random.randint(281, 456))
@@ -6582,6 +6627,36 @@ def get_defensive_coords(side_preference: str, card_grouping: str):
         return (
             random.randint(DEFENSIVE_RIGHT_X_MIN, DEFENSIVE_RIGHT_X_MAX),
             random.randint(DEFENSIVE_Y_MIN, DEFENSIVE_Y_MAX),
+        )
+
+
+def get_offensive_coords(side_preference: str, card_grouping: str):
+    """Get offensive placement coordinates for aggressive pushing toward enemy towers.
+
+    Places troops at the bridge or slightly past to create immediate pressure.
+
+    Args:
+        side_preference: "left" or "right" - which side to push
+        card_grouping: Type of card being placed
+
+    Returns:
+        tuple: (x, y) coordinates for offensive placement, or None if not applicable
+    """
+    # Skip offensive placement for cards that have specific placement needs
+    if card_grouping in NATURALLY_DEFENSIVE_CARD_TYPES:
+        return None
+
+    if side_preference == "left":
+        # Left side offensive placement - at/near the bridge
+        return (
+            random.randint(OFFENSIVE_LEFT_X_MIN, OFFENSIVE_LEFT_X_MAX),
+            random.randint(OFFENSIVE_Y_MIN, OFFENSIVE_Y_MAX),
+        )
+    else:
+        # Right side offensive placement - at/near the bridge
+        return (
+            random.randint(OFFENSIVE_RIGHT_X_MIN, OFFENSIVE_RIGHT_X_MAX),
+            random.randint(OFFENSIVE_Y_MIN, OFFENSIVE_Y_MAX),
         )
 
 

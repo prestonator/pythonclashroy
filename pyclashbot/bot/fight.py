@@ -519,6 +519,23 @@ def select_card_index(card_indices: list[int], last_three_cards: collections.deq
 
 
 def play_a_card(emulator, logger, recording_flag: bool, battle_strategy: "BattleStrategy") -> bool:
+    """Play a card based on the current battle strategy.
+
+    This function:
+    1. Checks which cards are available in hand
+    2. Selects a card based on recent play history
+    3. Calculates placement coordinates based on strategy mode (offensive/defensive/balanced)
+    4. Executes the card play
+
+    Args:
+        emulator: Emulator instance for interaction
+        logger: Logger instance for status updates
+        recording_flag: Whether to record the play
+        battle_strategy: BattleStrategy instance controlling the current strategy
+
+    Returns:
+        bool: True if card was successfully played, False otherwise
+    """
     # check which cards are available
     logger.change_status("Looking at which cards are available")
     available_card_check_start_time = time.time()
@@ -541,15 +558,20 @@ def play_a_card(emulator, logger, recording_flag: bool, battle_strategy: "Battle
         last_three_cards.append(card_index)
     logger.change_status(f"Choosing this card index: {card_index}")
 
-    # get a coord based on the selected side
+    # Get placement mode from strategy for context-aware card placement
+    placement_mode = battle_strategy.get_placement_mode()
+
+    # get a coord based on the selected side and placement mode
     play_coord_calculation_start_time = time.time()
-    card_id, play_coord = get_play_coords_for_card(emulator, logger, card_index, battle_strategy.get_elapsed_time())
+    card_id, play_coord = get_play_coords_for_card(
+        emulator, logger, card_index, battle_strategy.get_elapsed_time(), placement_mode=placement_mode
+    )
     play_coord_calculation_time_taken = str(
         time.time() - play_coord_calculation_start_time,
     )[:3]
 
     logger.change_status(
-        f"Calculated play for: {card_id} at {play_coord} ({play_coord_calculation_time_taken}s)",
+        f"Calculated play for: {card_id} at {play_coord} [{placement_mode}] ({play_coord_calculation_time_taken}s)",
     )
 
     # click the card index
@@ -587,6 +609,11 @@ class BattleStrategy:
     Encapsulates the sophisticated elixir selection logic that changes
     based on battle phase, eliminating the need for global variables.
     Supports configurable strategies for elixir management, push tactics, and aggression levels.
+
+    Tower Health Awareness:
+    - Tracks relative tower health advantage/disadvantage
+    - Adjusts strategy based on tower health states
+    - Provides context for counter-push decisions
     """
 
     # Predefined elixir strategy profiles
@@ -645,6 +672,13 @@ class BattleStrategy:
         },
     }
 
+    # Tower health state thresholds for strategy adjustments
+    TOWER_HEALTH_THRESHOLDS = {
+        "critical": 0.25,  # Below 25% - tower is in danger
+        "low": 0.50,       # Below 50% - tower needs protection
+        "medium": 0.75,    # Below 75% - tower is weakened
+    }
+
     def __init__(
         self,
         elixir_mode: str = "Adaptive",
@@ -682,6 +716,17 @@ class BattleStrategy:
         self.cards_played_this_push = 0
         self.push_switch_threshold = 3  # Switch lanes after this many cards
 
+        # Counter-push tracking
+        self.last_defended_lane = None  # Track which lane we last defended
+        self.defense_success_count = 0  # Track successful defenses for counter-push
+        self.last_threat_levels = {"left": 0, "right": 0}  # Previous threat levels
+        self.counter_push_ready = False  # Flag indicating we're ready to counter-push
+
+        # Tower health tracking (relative states)
+        self.our_tower_health = {"left": "high", "right": "high", "king": "high"}
+        self.enemy_tower_health = {"left": "high", "right": "high", "king": "high"}
+        self.tower_advantage = 0  # Positive = we're ahead, Negative = behind
+
         # Log strategy configuration
         if self.logger:
             self.logger.log("BattleStrategy initialized with:")
@@ -693,6 +738,10 @@ class BattleStrategy:
         """Call when battle begins to start timing."""
         self.start_time = time.time()
         self.cards_played_this_push = 0
+        self.last_defended_lane = None
+        self.defense_success_count = 0
+        self.counter_push_ready = False
+        self.last_threat_levels = {"left": 0, "right": 0}
         if self.logger:
             self.logger.log(
                 f"Battle started with {self.elixir_mode} elixir, "
@@ -715,16 +764,146 @@ class BattleStrategy:
         else:
             return "triple"
 
+    def update_threat_levels(self, left_threat: float, right_threat: float, threshold: float = 5000):
+        """Update threat levels and detect defense opportunities.
+
+        This method tracks changes in threat levels to detect when we've
+        successfully defended an attack, enabling counter-push opportunities.
+
+        Args:
+            left_threat: Current threat level on left lane
+            right_threat: Current threat level on right lane
+            threshold: Minimum threat level to consider significant
+        """
+        # Detect if we just defended an attack (threat dropped significantly)
+        left_defended = self.last_threat_levels["left"] > threshold and left_threat < threshold * 0.5
+        right_defended = self.last_threat_levels["right"] > threshold and right_threat < threshold * 0.5
+
+        if left_defended:
+            self.last_defended_lane = "left"
+            self.defense_success_count += 1
+            self.counter_push_ready = True
+            if self.logger:
+                self.logger.log("Defense successful on LEFT lane - counter-push opportunity!")
+
+        if right_defended:
+            self.last_defended_lane = "right"
+            self.defense_success_count += 1
+            self.counter_push_ready = True
+            if self.logger:
+                self.logger.log("Defense successful on RIGHT lane - counter-push opportunity!")
+
+        # Update last threat levels
+        self.last_threat_levels["left"] = left_threat
+        self.last_threat_levels["right"] = right_threat
+
+    def update_tower_health(
+        self,
+        our_left: str = "high",
+        our_right: str = "high",
+        our_king: str = "high",
+        enemy_left: str = "high",
+        enemy_right: str = "high",
+        enemy_king: str = "high",
+    ):
+        """Update tower health states for strategy decisions.
+
+        Args:
+            our_left: Our left princess tower health state ("high", "medium", "low", "critical", "destroyed")
+            our_right: Our right princess tower health state
+            our_king: Our king tower health state
+            enemy_left: Enemy left princess tower health state
+            enemy_right: Enemy right princess tower health state
+            enemy_king: Enemy king tower health state
+        """
+        self.our_tower_health = {"left": our_left, "right": our_right, "king": our_king}
+        self.enemy_tower_health = {"left": enemy_left, "right": enemy_right, "king": enemy_king}
+
+        # Calculate tower advantage (simple scoring)
+        health_scores = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
+
+        our_score = sum(health_scores.get(h, 4) for h in self.our_tower_health.values())
+        enemy_score = sum(health_scores.get(h, 4) for h in self.enemy_tower_health.values())
+        self.tower_advantage = our_score - enemy_score
+
+        if self.logger and self.tower_advantage != 0:
+            status = "ahead" if self.tower_advantage > 0 else "behind"
+            self.logger.log(f"Tower advantage: {status} by {abs(self.tower_advantage)} points")
+
+    def get_best_attack_lane(self) -> str:
+        """Determine the best lane to attack based on tower health.
+
+        Returns:
+            str: "left" or "right" - the best lane to focus attacks on
+        """
+        # Prefer attacking the weaker enemy tower
+        health_scores = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
+
+        left_score = health_scores.get(self.enemy_tower_health["left"], 4)
+        right_score = health_scores.get(self.enemy_tower_health["right"], 4)
+
+        # If one tower is destroyed, attack the other
+        if left_score == 0:
+            return "right"
+        if right_score == 0:
+            return "left"
+
+        # Attack the weaker tower (lower score = weaker)
+        if left_score < right_score:
+            return "left"
+        elif right_score < left_score:
+            return "right"
+
+        # If equal, maintain current lane
+        return self.current_push_lane
+
+    def get_lane_needing_defense(self) -> str | None:
+        """Determine which lane needs defensive attention.
+
+        Returns:
+            str | None: "left" or "right" if a lane needs defense, None otherwise
+        """
+        health_scores = {"high": 4, "medium": 3, "low": 2, "critical": 1, "destroyed": 0}
+
+        left_score = health_scores.get(self.our_tower_health["left"], 4)
+        right_score = health_scores.get(self.our_tower_health["right"], 4)
+
+        # Prioritize defending critically weak towers
+        if left_score <= 1 and left_score < right_score:
+            return "left"
+        if right_score <= 1 and right_score < left_score:
+            return "right"
+
+        # No urgent defense needed
+        return None
+
     def select_elixir_amount(self):
-        """Select elixir amount to wait for based on current battle phase and strategy."""
+        """Select elixir amount to wait for based on current battle phase, strategy, and tower health."""
         phase = self.get_battle_phase()
-        weights = self.phase_strategies[phase]
+        weights = list(self.phase_strategies[phase])  # Copy to avoid modifying original
+
+        # Adjust weights based on tower health situation
+        if self.tower_advantage < -2:
+            # We're behind - be more conservative, wait for more elixir
+            # Shift weights toward higher elixir amounts
+            weights = [w * 0.5 for w in weights[:3]] + [w * 1.5 for w in weights[3:]]
+            # Normalize weights
+            total = sum(weights)
+            weights = [w / total for w in weights]
+        elif self.tower_advantage > 2:
+            # We're ahead - can be more aggressive
+            # Shift weights toward lower elixir amounts
+            weights = [w * 1.5 for w in weights[:4]] + [w * 0.5 for w in weights[4:]]
+            # Normalize weights
+            total = sum(weights)
+            weights = [w / total for w in weights]
+
         selected = random.choices(self.elixir_amounts, weights=weights, k=1)[0]
 
         if self.logger:
             self.logger.log(
                 f"Phase: {phase}, Selected elixir target: {selected} "
-                f"(Mode: {self.elixir_mode})"
+                f"(Mode: {self.elixir_mode}, Advantage: {self.tower_advantage})"
             )
 
         return selected
@@ -732,7 +911,21 @@ class BattleStrategy:
     def get_thresholds(self):
         """Get (WAIT_THRESHOLD, PLAY_THRESHOLD) for current battle phase and aggression."""
         phase = self.get_battle_phase()
-        thresholds = self.phase_thresholds[phase]
+        base_thresholds = self.phase_thresholds[phase]
+
+        # Adjust thresholds based on tower health
+        wait_threshold, play_threshold = base_thresholds
+
+        # If we're behind, play more defensively (higher thresholds)
+        if self.tower_advantage < -2:
+            wait_threshold = int(wait_threshold * 1.2)
+            play_threshold = int(play_threshold * 1.2)
+        # If we're ahead, can play more aggressively (lower thresholds)
+        elif self.tower_advantage > 2:
+            wait_threshold = int(wait_threshold * 0.8)
+            play_threshold = int(play_threshold * 0.8)
+
+        thresholds = (wait_threshold, play_threshold)
 
         if self.logger:
             self.logger.log(
@@ -750,6 +943,7 @@ class BattleStrategy:
         """
         if self.push_mode == "Single Lane":
             return False  # Never switch, stay on one lane
+
         elif self.push_mode == "Dual Lane":
             # Switch lanes regularly to pressure both sides
             if self.cards_played_this_push >= self.push_switch_threshold:
@@ -759,27 +953,59 @@ class BattleStrategy:
                     self.logger.log(f"Switching to {self.current_push_lane} lane (Dual Lane strategy)")
                 return True
             return False
+
         elif self.push_mode == "Counter Push":
-            # Opportunistic lane switching based on defense success
-            # TODO: Integrate with Roboflow model for opponent card detection
-            # For now, uses adaptive logic similar to "Adaptive" mode
-            if self.cards_played_this_push >= self.push_switch_threshold + 1:
+            # Counter-push strategy: push in the lane where we just defended
+            if self.counter_push_ready and self.last_defended_lane:
+                # Execute counter-push in the defended lane
+                self.current_push_lane = self.last_defended_lane
+                self.counter_push_ready = False
                 self.cards_played_this_push = 0
-                if random.random() > 0.7:  # 30% chance to switch (less than adaptive)
-                    self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
-                    if self.logger:
-                        self.logger.log(f"Counter-push switch to {self.current_push_lane} lane")
-                    return True
+                if self.logger:
+                    self.logger.log(f"Counter-push activated on {self.current_push_lane} lane!")
+                return True
+
+            # If no counter-push opportunity, consider tower health
+            best_lane = self.get_best_attack_lane()
+            if best_lane != self.current_push_lane and self.cards_played_this_push >= self.push_switch_threshold:
+                self.cards_played_this_push = 0
+                self.current_push_lane = best_lane
+                if self.logger:
+                    self.logger.log(f"Switching to {self.current_push_lane} (weaker enemy tower)")
+                return True
+
             return False
+
         else:  # Adaptive
-            # Adaptively switch lanes based on situation
+            # Check if a tower needs defense
+            defense_lane = self.get_lane_needing_defense()
+            if defense_lane and defense_lane != self.current_push_lane:
+                # Prioritize defending weak tower
+                self.current_push_lane = defense_lane
+                self.cards_played_this_push = 0
+                if self.logger:
+                    self.logger.log(f"Defending {self.current_push_lane} lane (tower health critical)")
+                return True
+
+            # Adaptive switching with tower health awareness
             if self.cards_played_this_push >= self.push_switch_threshold + 1:
                 self.cards_played_this_push = 0
-                if random.random() > 0.6:  # 40% chance to switch
+
+                # Consider switching to attack weaker enemy tower
+                best_lane = self.get_best_attack_lane()
+                if best_lane != self.current_push_lane:
+                    self.current_push_lane = best_lane
+                    if self.logger:
+                        self.logger.log(f"Adaptive switch to {self.current_push_lane} (tower analysis)")
+                    return True
+
+                # Random switch with 40% probability
+                if random.random() > 0.6:
                     self.current_push_lane = "right" if self.current_push_lane == "left" else "left"
                     if self.logger:
                         self.logger.log(f"Adaptive switch to {self.current_push_lane} lane")
                     return True
+
             return False
 
     def get_preferred_lane(self) -> str:
@@ -789,6 +1015,33 @@ class BattleStrategy:
             str: "left" or "right"
         """
         return self.current_push_lane
+
+    def get_placement_mode(self) -> str:
+        """Determine if we should place cards offensively or defensively.
+
+        Returns:
+            str: "offensive", "defensive", or "balanced"
+        """
+        # Check if any of our towers is critical
+        if (
+            self.our_tower_health["left"] == "critical"
+            or self.our_tower_health["right"] == "critical"
+        ):
+            return "defensive"
+
+        # Check if we're significantly behind
+        if self.tower_advantage < -3:
+            return "defensive"
+
+        # Check if we're significantly ahead or enemy tower is weak
+        if (
+            self.tower_advantage > 3
+            or self.enemy_tower_health["left"] == "critical"
+            or self.enemy_tower_health["right"] == "critical"
+        ):
+            return "offensive"
+
+        return "balanced"
 
     def on_card_played(self):
         """Track when a card is played for push strategy management."""
@@ -803,6 +1056,12 @@ def _fight_loop(
     strategy_config: dict | None = None,
 ) -> bool:
     """Method for handling dynamically timed fight with configurable strategy.
+
+    This function implements the main battle loop with:
+    - Configurable elixir management strategies
+    - Lane pushing strategies (Single Lane, Dual Lane, Counter Push, Adaptive)
+    - Tower health-aware decision making
+    - Counter-push detection and execution
 
     Args:
         emulator: The emulator instance
@@ -832,8 +1091,17 @@ def _fight_loop(
 
     battle_strategy.start_battle()
 
+    # Track iterations for periodic strategy updates
+    loop_iteration = 0
+    strategy_update_interval = 3  # Update threat levels every N iterations
+
     while check_for_in_battle_with_delay(emulator):
-        # debug screenshot saving removed from production
+        loop_iteration += 1
+
+        # Periodically update threat levels for counter-push detection
+        if loop_iteration % strategy_update_interval == 0:
+            left_threat, right_threat = switch_side()
+            battle_strategy.update_threat_levels(left_threat, right_threat)
 
         # Get elixir amount and thresholds based on current battle phase
         elixir_amount = battle_strategy.select_elixir_amount()
@@ -863,7 +1131,6 @@ def _fight_loop(
         play_start_time = time.time()
         if play_a_card(emulator, logger, recording_flag, battle_strategy) is False:
             logger.change_status("Failed to play a card, retrying...")
-        # play_time_taken = str(time.time() - play_start_time)[:4]
         logger.change_status(
             f"Made a play in {str(time.time() - play_start_time)[:4]}s",
         )
