@@ -113,6 +113,8 @@ class PyClashBotUI(ttk.Window):
         values[UIField.STRATEGY_ELIXIR_MODE.value] = self.strategy_elixir_var.get()
         values[UIField.STRATEGY_PUSH_MODE.value] = self.strategy_push_var.get()
         values[UIField.STRATEGY_AGGRESSION_LEVEL.value] = self.strategy_aggression_var.get()
+        values[UIField.STRATEGY_TOWER_HEALTH_AWARE.value] = bool(self.strategy_tower_health_var.get())
+        values[UIField.STRATEGY_PLACEMENT_MODE.value] = self.strategy_placement_var.get()
 
         return values
 
@@ -172,6 +174,10 @@ class PyClashBotUI(ttk.Window):
                 self.strategy_push_var.set(str(values[UIField.STRATEGY_PUSH_MODE.value]))
             if UIField.STRATEGY_AGGRESSION_LEVEL.value in values:
                 self.strategy_aggression_var.set(str(values[UIField.STRATEGY_AGGRESSION_LEVEL.value]))
+            if UIField.STRATEGY_TOWER_HEALTH_AWARE.value in values:
+                self.strategy_tower_health_var.set(bool(values[UIField.STRATEGY_TOWER_HEALTH_AWARE.value]))
+            if UIField.STRATEGY_PLACEMENT_MODE.value in values:
+                self.strategy_placement_var.set(str(values[UIField.STRATEGY_PLACEMENT_MODE.value]))
 
         finally:
             self._suspend_traces -= 1
@@ -661,8 +667,8 @@ class PyClashBotUI(ttk.Window):
             push_frame,
             text="• Single Lane: Focus attacks on one lane\n"
                  "• Dual Lane: Alternate between both lanes\n"
-                 "• Counter Push: Conservative lane switches (enhanced with AI model)\n"
-                 "• Adaptive: Smart lane selection based on situation",
+                 "• Counter Push: Push in lane after successful defense\n"
+                 "• Adaptive: Smart lane selection based on tower health",
             justify=LEFT,
             font=("TkDefaultFont", 9),
         )
@@ -698,6 +704,60 @@ class PyClashBotUI(ttk.Window):
         )
         aggression_desc.pack(anchor="w", pady=(0, 4))
 
+        # Advanced Strategy Settings Frame
+        advanced_frame = ttk.Labelframe(container, text="🏰 Advanced Settings", padding=10)
+        advanced_frame.pack(fill=X, pady=(0, 10))
+
+        # Tower Health Awareness Toggle
+        self.strategy_tower_health_var = ttk.BooleanVar(value=True)
+        tower_health_checkbox = ttk.Checkbutton(
+            advanced_frame,
+            text="Enable Tower Health Awareness",
+            variable=self.strategy_tower_health_var,
+            bootstyle="round-toggle",
+            command=self._notify_config_change,
+        )
+        tower_health_checkbox.pack(anchor="w", pady=(0, 4))
+        self._trace_variable(self.strategy_tower_health_var)
+        self._register_config_widget(UIField.STRATEGY_TOWER_HEALTH_AWARE.value, tower_health_checkbox)
+
+        tower_health_desc = ttk.Label(
+            advanced_frame,
+            text="Adjusts strategy based on tower health differences.\n"
+                 "When enabled, bot plays more defensively when behind\n"
+                 "and more aggressively when ahead.",
+            justify=LEFT,
+            font=("TkDefaultFont", 9),
+        )
+        tower_health_desc.pack(anchor="w", padx=(20, 0), pady=(0, 8))
+
+        # Placement Mode
+        ttk.Label(advanced_frame, text="Card Placement Mode:").pack(anchor="w", pady=(4, 4))
+
+        placement_config = next(s for s in STRATEGY_SETTINGS if s.key == UIField.STRATEGY_PLACEMENT_MODE)
+        self.strategy_placement_var = ttk.StringVar(value=str(placement_config.default))
+        self.strategy_placement_combo = ttk.Combobox(
+            advanced_frame,
+            textvariable=self.strategy_placement_var,
+            values=placement_config.values,
+            state=READONLY,
+            width=25,
+        )
+        self.strategy_placement_combo.pack(anchor="w", pady=(0, 8))
+        self._trace_variable(self.strategy_placement_var)
+        self._register_config_widget(UIField.STRATEGY_PLACEMENT_MODE.value, self.strategy_placement_combo)
+
+        placement_desc = ttk.Label(
+            advanced_frame,
+            text="• Auto: Adjusts based on game state (recommended)\n"
+                 "• Offensive: Place troops at bridge for pressure\n"
+                 "• Defensive: Place troops near towers for protection\n"
+                 "• Balanced: Standard placement based on threat detection",
+            justify=LEFT,
+            font=("TkDefaultFont", 9),
+        )
+        placement_desc.pack(anchor="w", pady=(0, 4))
+
         # Info box
         info_frame = ttk.Frame(container)
         info_frame.pack(fill=X, pady=(10, 0))
@@ -705,7 +765,7 @@ class PyClashBotUI(ttk.Window):
         info_label = ttk.Label(
             info_frame,
             text="Info: These strategies control how the bot manages elixir, chooses lanes, "
-                 "and times card plays during battle. Settings are applied at the start of each battle.",
+                 "and positions cards during battle. Settings are applied at the start of each battle.",
             wraplength=450,
             justify=LEFT,
             font=("TkDefaultFont", 9),
