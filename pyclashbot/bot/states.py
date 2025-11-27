@@ -71,6 +71,10 @@ def get_enabled_fight_modes(job_list) -> list[str]:
         enabled_modes.append("Classic 2v2")
     if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
         enabled_modes.append("Trophy Road")
+    # Include clan battle mode if enabled
+    if job_list.get(UIField.CLAN_BATTLE_USER_TOGGLE, False):
+        clan_mode = job_list.get(UIField.CLAN_BATTLE_MODE, "Battle")
+        enabled_modes.append(clan_mode)
     return enabled_modes
 
 
@@ -383,27 +387,13 @@ def state_tree(
     if state == "select_battle_mode":
         enabled_modes = get_enabled_fight_modes(job_list)
 
-        # Check if clan battles are enabled
-        clan_battle_enabled = job_list.get(UIField.CLAN_BATTLE_USER_TOGGLE, False)
-
-        if not enabled_modes and not clan_battle_enabled:
+        if not enabled_modes:
             logger.log("No fight modes are enabled. Skipping this state")
             return state_order.next_state(state)
-
-        # If clan battles are enabled, add the selected clan mode to the enabled modes
-        if clan_battle_enabled:
-            clan_mode = job_list.get(UIField.CLAN_BATTLE_MODE, "Battle")
-            if clan_mode not in enabled_modes:
-                enabled_modes.append(clan_mode)
 
         # if more than one mode is selected, just cycle through them
         if len(enabled_modes) > 1:
             selected_mode = battle_mode_state.get_next_fight_mode(job_list)
-
-            # If the fight mode state returns a regular mode but clan is enabled,
-            # we may need to handle clan mode separately
-            if selected_mode is None and clan_battle_enabled:
-                selected_mode = job_list.get(UIField.CLAN_BATTLE_MODE, "Battle")
 
             logger.log(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
             battle_mode_state.mode_used_in_1v1 = selected_mode
