@@ -398,6 +398,7 @@ class PyClashBotUI(ttk.Window):
 
         primary_bootstyle = "warning-outline-toolbutton"
         secondary_bootstyle = "info-outline-toolbutton"
+        clan_bootstyle = "success-outline-toolbutton"
 
         add_job_checkbox(
             UIField.CLASSIC_1V1_USER_TOGGLE,
@@ -418,6 +419,32 @@ class PyClashBotUI(ttk.Window):
             primary_bootstyle,
         )
 
+        # Clan Battle Modes Section
+        ttk.Separator(frame, orient="horizontal").grid(row=3, column=0, columnspan=4, sticky="ew", pady=8)
+        clan_label = ttk.Label(frame, text="🏰 Clan Battle Modes:", font=("TkDefaultFont", 9, "bold"))
+        clan_label.grid(row=4, column=0, sticky="w", pady=(0, 4))
+
+        add_job_checkbox(
+            UIField.CLAN_BATTLE_USER_TOGGLE,
+            "⚔️ Clan Battle",
+            5,
+            clan_bootstyle,
+        )
+        add_job_checkbox(
+            UIField.SUDDEN_DEATH_USER_TOGGLE,
+            "💀 Sudden Death Battle",
+            6,
+            clan_bootstyle,
+        )
+        add_job_checkbox(
+            UIField.COLOSSEUM_DUEL_USER_TOGGLE,
+            "🏟️ Colosseum Duel",
+            7,
+            clan_bootstyle,
+        )
+
+        ttk.Separator(frame, orient="horizontal").grid(row=8, column=0, columnspan=4, sticky="ew", pady=8)
+
         random_job = jobs_by_key[UIField.RANDOM_DECKS_USER_TOGGLE]
         deck_config: ComboConfig = random_job.extras[UIField.DECK_NUMBER_SELECTION]
         self.jobs_vars[UIField.RANDOM_DECKS_USER_TOGGLE] = ttk.BooleanVar(value=random_job.default)
@@ -429,12 +456,12 @@ class PyClashBotUI(ttk.Window):
             command=self._notify_config_change,
             width=checkbox_width,
         )
-        random_checkbox.grid(row=3, column=0, sticky="w", pady=2)
+        random_checkbox.grid(row=9, column=0, sticky="w", pady=2)
         self._trace_variable(self.jobs_vars[UIField.RANDOM_DECKS_USER_TOGGLE])
         self._register_config_widget(UIField.RANDOM_DECKS_USER_TOGGLE.value, random_checkbox)
 
         deck_info = ttk.Label(frame, text="ⓘ", bootstyle="info")
-        deck_info.grid(row=3, column=2, sticky="e", padx=(0, 2))
+        deck_info.grid(row=9, column=2, sticky="e", padx=(0, 2))
         ToolTip(deck_info, "Deck Number to use for Randomization")
         self.deck_var = ttk.StringVar(value=str(deck_config.default))
         self.deck_spin = ttk.Spinbox(
@@ -446,7 +473,7 @@ class PyClashBotUI(ttk.Window):
             command=self._notify_config_change,
             state=READONLY,
         )
-        self.deck_spin.grid(row=3, column=3, sticky="e")
+        self.deck_spin.grid(row=9, column=3, sticky="e")
         self._trace_variable(self.deck_var)
         self._register_config_widget(UIField.DECK_NUMBER_SELECTION.value, self.deck_spin)
 
@@ -461,12 +488,12 @@ class PyClashBotUI(ttk.Window):
             command=self._notify_config_change,
             width=checkbox_width,
         )
-        cycle_checkbox.grid(row=4, column=0, sticky="w", pady=2)
+        cycle_checkbox.grid(row=10, column=0, sticky="w", pady=2)
         self._trace_variable(self.jobs_vars[UIField.CYCLE_DECKS_USER_TOGGLE])
         self._register_config_widget(UIField.CYCLE_DECKS_USER_TOGGLE.value, cycle_checkbox)
 
         max_deck_info = ttk.Label(frame, text="ⓘ", bootstyle="info")
-        max_deck_info.grid(row=4, column=2, sticky="e", padx=(0, 2))
+        max_deck_info.grid(row=10, column=2, sticky="e", padx=(0, 2))
         ToolTip(max_deck_info, "Number of decks to cycle through")
         self.max_deck_var = ttk.StringVar(value=str(max_config.default))
         self.max_deck_spin = ttk.Spinbox(
@@ -478,14 +505,14 @@ class PyClashBotUI(ttk.Window):
             command=self._notify_config_change,
             state=READONLY,
         )
-        self.max_deck_spin.grid(row=4, column=3, sticky="e")
+        self.max_deck_spin.grid(row=10, column=3, sticky="e")
         self._trace_variable(self.max_deck_var)
         self._register_config_widget(UIField.MAX_DECK_SELECTION.value, self.max_deck_spin)
 
-        add_job_checkbox(UIField.RANDOM_PLAYS_USER_TOGGLE, "❔ Random plays", 5, secondary_bootstyle)
-        add_job_checkbox(UIField.DISABLE_WIN_TRACK_TOGGLE, "⏭️ Skip win/loss check", 6, secondary_bootstyle)
-        add_job_checkbox(UIField.CARD_MASTERY_USER_TOGGLE, "🎯 Card Masteries", 7, secondary_bootstyle)
-        add_job_checkbox(UIField.CARD_UPGRADE_USER_TOGGLE, "⬆️ Upgrade Cards", 8, secondary_bootstyle)
+        add_job_checkbox(UIField.RANDOM_PLAYS_USER_TOGGLE, "❔ Random plays", 11, secondary_bootstyle)
+        add_job_checkbox(UIField.DISABLE_WIN_TRACK_TOGGLE, "⏭️ Skip win/loss check", 12, secondary_bootstyle)
+        add_job_checkbox(UIField.CARD_MASTERY_USER_TOGGLE, "🎯 Card Masteries", 13, secondary_bootstyle)
+        add_job_checkbox(UIField.CARD_UPGRADE_USER_TOGGLE, "⬆️ Upgrade Cards", 14, secondary_bootstyle)
 
     def _create_emulator_tab(self) -> None:
         # Main container frame for the tab

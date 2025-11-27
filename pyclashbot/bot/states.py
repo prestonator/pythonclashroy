@@ -67,6 +67,13 @@ def get_enabled_fight_modes(job_list) -> list[str]:
         enabled_modes.append("Classic 2v2")
     if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
         enabled_modes.append("Trophy Road")
+    # Clan Battle Modes
+    if job_list.get(UIField.CLAN_BATTLE_USER_TOGGLE, False):
+        enabled_modes.append("Clan Battle")
+    if job_list.get(UIField.SUDDEN_DEATH_USER_TOGGLE, False):
+        enabled_modes.append("Sudden Death")
+    if job_list.get(UIField.COLOSSEUM_DUEL_USER_TOGGLE, False):
+        enabled_modes.append("Colosseum Duel")
     return enabled_modes
 
 
@@ -420,8 +427,9 @@ def state_tree(
         return state_order.next_state(state)
 
     if state == "1v1_fight":
-        # Check if the current mode is a 1v1 type (Classic 1v1 or Trophy Road)
-        if battle_mode_state.mode_used_in_1v1 not in ["Classic 1v1", "Trophy Road"]:
+        # Check if the current mode is a 1v1 type (Classic 1v1, Trophy Road, or Clan Battle modes)
+        valid_1v1_modes = ["Classic 1v1", "Trophy Road", "Clan Battle", "Sudden Death", "Colosseum Duel"]
+        if battle_mode_state.mode_used_in_1v1 not in valid_1v1_modes:
             logger.log(f"Current mode '{battle_mode_state.mode_used_in_1v1}' is not a 1v1 type. Skipping this state")
             return state_order.next_state(state)
 

@@ -530,7 +530,14 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
     Returns:
         True if the mode is selected, False otherwise.
     """
-    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    expected_mode_types = [
+        "Classic 1v1",
+        "Classic 2v2",
+        "Trophy Road",
+        "Clan Battle",
+        "Sudden Death",
+        "Colosseum Duel",
+    ]
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
@@ -541,6 +548,9 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
         "Classic 1v1": "selected_1v1_on_main",
         "Classic 2v2": "selected_2v2_on_main",
         "Trophy Road": "selected_trophy_road_on_main",
+        "Clan Battle": "selected_clan_battle_on_main",
+        "Sudden Death": "selected_sudden_death_on_main",
+        "Colosseum Duel": "selected_colosseum_duel_on_main",
     }
 
     look_folder = mode2folder[mode]
@@ -563,7 +573,14 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
 
 
 def find_fight_mode_icon(emulator, mode: str):
-    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    expected_mode_types = [
+        "Classic 1v1",
+        "Classic 2v2",
+        "Trophy Road",
+        "Clan Battle",
+        "Sudden Death",
+        "Colosseum Duel",
+    ]
 
     # Check if the mode is valid
     if mode not in expected_mode_types:
@@ -574,6 +591,9 @@ def find_fight_mode_icon(emulator, mode: str):
         "Classic 1v1": "fight_mode_1v1",
         "Classic 2v2": "fight_mode_2v2",
         "Trophy Road": "fight_mode_trophy_road",
+        "Clan Battle": "fight_mode_clan_battle",
+        "Sudden Death": "fight_mode_sudden_death",
+        "Colosseum Duel": "fight_mode_colosseum_duel",
     }
 
     look_folder = mode2folder[mode]
@@ -598,7 +618,14 @@ def find_fight_mode_icon(emulator, mode: str):
 
 def select_mode(emulator, mode: str):
     # Check if the mode is valid
-    expected_mode_types = ["Classic 1v1", "Classic 2v2", "Trophy Road"]
+    expected_mode_types = [
+        "Classic 1v1",
+        "Classic 2v2",
+        "Trophy Road",
+        "Clan Battle",
+        "Sudden Death",
+        "Colosseum Duel",
+    ]
     if type(mode) is not str:
         logging.warning(f'Warning: Mode "{mode}" is not a string. Expected a string.')
         return False

@@ -14,7 +14,16 @@ _Join our [Discord server](https://discord.gg/nqKRkyq2UU) for support, updates, 
 - **Random Decks** - Randomize your deck selection before each battle
 - **Smart Battle Management** - Skip fights when chests are full, disable win/loss tracking
 
-### 🎯 **Battle Strategies** (New!)
+### 🏰 **Clan Battle Support** (New!)
+
+- **Clan Battle** - Participate in standard clan vs clan battles
+- **Sudden Death Battle** - Battle in sudden death format matches
+- **Colosseum Duel** - Fight in colosseum duel matches
+- **Same Strategy Engine** - Uses the same intelligent battle strategies as other modes
+- **Custom Icon Detection** - Add your own battle icon screenshots for detection
+- **[Setup Guide](CLAN_BATTLES.md)** - See full documentation for setting up clan battle support
+
+### 🎯 **Battle Strategies**
 
 - **Elixir Management** - Choose between Conservative, Balanced, Aggressive, or Adaptive elixir strategies
 - **Push Strategies** - Configure Single Lane, Dual Lane, Counter Push, or Adaptive push tactics

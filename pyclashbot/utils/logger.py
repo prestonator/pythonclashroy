@@ -107,6 +107,9 @@ class Logger:
         self.classic_1v1_fights = 0
         self.classic_2v2_fights = 0
         self.trophy_road_1v1_fights = 0
+        self.clan_battle_fights = 0
+        self.sudden_death_fights = 0
+        self.colosseum_duel_fights = 0
         self.cards_played = 0
         self.war_fights = 0
         self.card_randomizations = 0
@@ -174,6 +177,9 @@ class Logger:
                 "classic_1v1_fights": self.classic_1v1_fights,
                 "classic_2v2_fights": self.classic_2v2_fights,
                 "trophy_road_1v1_fights": self.trophy_road_1v1_fights,
+                "clan_battle_fights": self.clan_battle_fights,
+                "sudden_death_fights": self.sudden_death_fights,
+                "colosseum_duel_fights": self.colosseum_duel_fights,
                 "winrate": self.winrate,
                 "current_win_streak": self.current_win_streak,
                 "best_win_streak": self.best_win_streak,
@@ -292,6 +298,21 @@ class Logger:
     @_updates_gui
     def increment_trophy_road_fights(self):
         self.trophy_road_1v1_fights += 1
+
+    @_updates_gui
+    def increment_clan_battle_fights(self):
+        """Increment the logger's clan_battle_fights count by 1."""
+        self.clan_battle_fights += 1
+
+    @_updates_gui
+    def increment_sudden_death_fights(self):
+        """Increment the logger's sudden_death_fights count by 1."""
+        self.sudden_death_fights += 1
+
+    @_updates_gui
+    def increment_colosseum_duel_fights(self):
+        """Increment the logger's colosseum_duel_fights count by 1."""
+        self.colosseum_duel_fights += 1
 
     def increment_trophy_road_reward_collects(self):
         self.trophy_road_reward_collections += 1

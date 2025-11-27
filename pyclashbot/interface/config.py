@@ -72,6 +72,10 @@ JOBS = [
     JobConfig(UIField.CLASSIC_1V1_USER_TOGGLE, "Classic 1v1 battles", default=False),
     JobConfig(UIField.CLASSIC_2V2_USER_TOGGLE, "Classic 2v2 battles", default=False),
     JobConfig(UIField.TROPHY_ROAD_USER_TOGGLE, "Trophy Road battles", default=True),
+    # Clan Battle Modes
+    JobConfig(UIField.CLAN_BATTLE_USER_TOGGLE, "Clan Battle", default=False),
+    JobConfig(UIField.SUDDEN_DEATH_USER_TOGGLE, "Sudden Death Battle", default=False),
+    JobConfig(UIField.COLOSSEUM_DUEL_USER_TOGGLE, "Colosseum Duel", default=False),
     JobConfig(
         UIField.RANDOM_DECKS_USER_TOGGLE,
         "Random decks",

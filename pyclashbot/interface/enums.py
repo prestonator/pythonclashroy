@@ -10,6 +10,9 @@ class StatField(StrEnum):
     CLASSIC_1V1_FIGHTS = "classic_1v1_fights"
     CLASSIC_2V2_FIGHTS = "classic_2v2_fights"
     TROPHY_ROAD_1V1_FIGHTS = "trophy_road_1v1_fights"
+    CLAN_BATTLE_FIGHTS = "clan_battle_fights"
+    SUDDEN_DEATH_FIGHTS = "sudden_death_fights"
+    COLOSSEUM_DUEL_FIGHTS = "colosseum_duel_fights"
     CARD_RANDOMIZATIONS = "card_randomizations"
     CARD_CYCLES = "card_cycles"
     CARD_MASTERY_REWARD_COLLECTIONS = "card_mastery_reward_collections"
@@ -33,6 +36,10 @@ class UIField(StrEnum):
     CLASSIC_1V1_USER_TOGGLE = "classic_1v1_user_toggle"
     CLASSIC_2V2_USER_TOGGLE = "classic_2v2_user_toggle"
     TROPHY_ROAD_USER_TOGGLE = "trophy_road_user_toggle"
+    # Clan Battle Modes
+    CLAN_BATTLE_USER_TOGGLE = "clan_battle_user_toggle"
+    SUDDEN_DEATH_USER_TOGGLE = "sudden_death_user_toggle"
+    COLOSSEUM_DUEL_USER_TOGGLE = "colosseum_duel_user_toggle"
     CARD_UPGRADE_USER_TOGGLE = "card_upgrade_user_toggle"
     RANDOM_DECKS_USER_TOGGLE = "random_decks_user_toggle"
     DECK_NUMBER_SELECTION = "deck_number_selection"
@@ -82,6 +89,9 @@ BATTLE_STAT_LABELS: dict[StatField, str] = {
     StatField.CLASSIC_1V1_FIGHTS: "Classic 1v1s",
     StatField.CLASSIC_2V2_FIGHTS: "Classic 2v2s",
     StatField.TROPHY_ROAD_1V1_FIGHTS: "Trophy Road 1v1s",
+    StatField.CLAN_BATTLE_FIGHTS: "Clan Battles",
+    StatField.SUDDEN_DEATH_FIGHTS: "Sudden Deaths",
+    StatField.COLOSSEUM_DUEL_FIGHTS: "Colosseum Duels",
     StatField.CARD_RANDOMIZATIONS: "Decks Randomized",
     StatField.CARD_CYCLES: "Decks Cycled",
 }
@@ -108,5 +118,8 @@ PRIMARY_JOB_TOGGLES: tuple[UIField, ...] = (
     UIField.CLASSIC_1V1_USER_TOGGLE,
     UIField.CLASSIC_2V2_USER_TOGGLE,
     UIField.TROPHY_ROAD_USER_TOGGLE,
+    UIField.CLAN_BATTLE_USER_TOGGLE,
+    UIField.SUDDEN_DEATH_USER_TOGGLE,
+    UIField.COLOSSEUM_DUEL_USER_TOGGLE,
     UIField.CARD_UPGRADE_USER_TOGGLE,
 )
