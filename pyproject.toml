@@ -32,7 +32,7 @@ homepage = "https://pyclashbot.app"
 [dependency-groups]
 build = ["cx-freeze>=8.3.0,<9", "packaging>=24.2", "requests>=2.32.4"]
 dev = ["pre-commit>=4.0.1,<5", "ruff>=0.7.4,<0.15"]
-models = ["inference-sdk>=0.9.0"]
+models = ["inference-sdk>=0.62.0"]
 
 [tool.ruff.lint]
 select = [
