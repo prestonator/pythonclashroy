@@ -10,6 +10,7 @@ class StatField(StrEnum):
     CLASSIC_1V1_FIGHTS = "classic_1v1_fights"
     CLASSIC_2V2_FIGHTS = "classic_2v2_fights"
     TROPHY_ROAD_1V1_FIGHTS = "trophy_road_1v1_fights"
+    CLAN_BATTLE_FIGHTS = "clan_battle_fights"
     CARD_RANDOMIZATIONS = "card_randomizations"
     CARD_CYCLES = "card_cycles"
     CARD_MASTERY_REWARD_COLLECTIONS = "card_mastery_reward_collections"
@@ -73,6 +74,10 @@ class UIField(StrEnum):
     # Advanced Strategy Settings
     STRATEGY_TOWER_HEALTH_AWARE = "strategy_tower_health_aware"
     STRATEGY_PLACEMENT_MODE = "strategy_placement_mode"
+    # Clan Battle Settings
+    CLAN_BATTLE_USER_TOGGLE = "clan_battle_user_toggle"
+    CLAN_BATTLE_MODE = "clan_battle_mode"
+    CLAN_BATTLE_MANUAL_START = "clan_battle_manual_start"
 
 
 BATTLE_STAT_LABELS: dict[StatField, str] = {
@@ -82,6 +87,7 @@ BATTLE_STAT_LABELS: dict[StatField, str] = {
     StatField.CLASSIC_1V1_FIGHTS: "Classic 1v1s",
     StatField.CLASSIC_2V2_FIGHTS: "Classic 2v2s",
     StatField.TROPHY_ROAD_1V1_FIGHTS: "Trophy Road 1v1s",
+    StatField.CLAN_BATTLE_FIGHTS: "Clan Battles",
     StatField.CARD_RANDOMIZATIONS: "Decks Randomized",
     StatField.CARD_CYCLES: "Decks Cycled",
 }

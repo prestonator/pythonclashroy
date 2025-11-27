@@ -1,0 +1,3 @@
+# This folder contains reference images for detecting the clan tab button.
+# Add PNG images of the clan tab button here for template matching.
+# The bot uses these images to identify when it's on the clan page.

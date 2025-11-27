@@ -11,6 +11,7 @@ from ttkbootstrap.tooltip import ToolTip
 
 from pyclashbot.interface.config import (
     BLUESTACKS_SETTINGS,
+    CLAN_BATTLE_MODES,
     JOBS,
     STRATEGY_SETTINGS,
     ComboConfig,
@@ -116,6 +117,11 @@ class PyClashBotUI(ttk.Window):
         values[UIField.STRATEGY_TOWER_HEALTH_AWARE.value] = bool(self.strategy_tower_health_var.get())
         values[UIField.STRATEGY_PLACEMENT_MODE.value] = self.strategy_placement_var.get()
 
+        # Clan Battle settings
+        values[UIField.CLAN_BATTLE_USER_TOGGLE.value] = bool(self.clan_battle_enabled_var.get())
+        values[UIField.CLAN_BATTLE_MODE.value] = self.clan_battle_mode_var.get()
+        values[UIField.CLAN_BATTLE_MANUAL_START.value] = bool(self.clan_battle_manual_var.get())
+
         return values
 
     def set_all_values(self, values: dict[str, object]) -> None:
@@ -178,6 +184,14 @@ class PyClashBotUI(ttk.Window):
                 self.strategy_tower_health_var.set(bool(values[UIField.STRATEGY_TOWER_HEALTH_AWARE.value]))
             if UIField.STRATEGY_PLACEMENT_MODE.value in values:
                 self.strategy_placement_var.set(str(values[UIField.STRATEGY_PLACEMENT_MODE.value]))
+
+            # Clan Battle settings
+            if UIField.CLAN_BATTLE_USER_TOGGLE.value in values:
+                self.clan_battle_enabled_var.set(bool(values[UIField.CLAN_BATTLE_USER_TOGGLE.value]))
+            if UIField.CLAN_BATTLE_MODE.value in values:
+                self.clan_battle_mode_var.set(str(values[UIField.CLAN_BATTLE_MODE.value]))
+            if UIField.CLAN_BATTLE_MANUAL_START.value in values:
+                self.clan_battle_manual_var.set(bool(values[UIField.CLAN_BATTLE_MANUAL_START.value]))
 
         finally:
             self._suspend_traces -= 1
@@ -486,6 +500,77 @@ class PyClashBotUI(ttk.Window):
         add_job_checkbox(UIField.DISABLE_WIN_TRACK_TOGGLE, "⏭️ Skip win/loss check", 6, secondary_bootstyle)
         add_job_checkbox(UIField.CARD_MASTERY_USER_TOGGLE, "🎯 Card Masteries", 7, secondary_bootstyle)
         add_job_checkbox(UIField.CARD_UPGRADE_USER_TOGGLE, "⬆️ Upgrade Cards", 8, secondary_bootstyle)
+
+        # Clan Battle Settings Frame
+        clan_frame = ttk.Labelframe(self.jobs_tab, text="Clan Battles", padding=10)
+        clan_frame.pack(padx=10, pady=(0, 10), anchor="n", fill="x")
+        clan_frame.columnconfigure(1, weight=1)
+
+        # Clan battle enabled toggle
+        self.clan_battle_enabled_var = ttk.BooleanVar(value=False)
+        clan_battle_checkbox = ttk.Checkbutton(
+            clan_frame,
+            text="🏰 Enable Clan Battles",
+            variable=self.clan_battle_enabled_var,
+            bootstyle=primary_bootstyle,
+            command=self._on_clan_battle_toggle_changed,
+            width=checkbox_width,
+        )
+        clan_battle_checkbox.grid(row=0, column=0, sticky="w", pady=2)
+        self._trace_variable(self.clan_battle_enabled_var)
+        self._register_config_widget(UIField.CLAN_BATTLE_USER_TOGGLE.value, clan_battle_checkbox)
+
+        # Clan battle mode dropdown
+        ttk.Label(clan_frame, text="Mode:").grid(row=1, column=0, sticky="w", padx=(20, 5), pady=2)
+        self.clan_battle_mode_var = ttk.StringVar(value="Battle")
+        self.clan_battle_mode_combo = ttk.Combobox(
+            clan_frame,
+            textvariable=self.clan_battle_mode_var,
+            values=CLAN_BATTLE_MODES,
+            state=READONLY,
+            width=18,
+        )
+        self.clan_battle_mode_combo.grid(row=1, column=1, sticky="w", pady=2)
+        self._trace_variable(self.clan_battle_mode_var)
+        self._register_config_widget(UIField.CLAN_BATTLE_MODE.value, self.clan_battle_mode_combo)
+        ToolTip(self.clan_battle_mode_combo, "Select the clan battle mode to use")
+
+        # Manual start toggle
+        self.clan_battle_manual_var = ttk.BooleanVar(value=False)
+        clan_manual_checkbox = ttk.Checkbutton(
+            clan_frame,
+            text="⏳ Manual Start (wait for battle)",
+            variable=self.clan_battle_manual_var,
+            bootstyle=secondary_bootstyle,
+            command=self._notify_config_change,
+            width=checkbox_width,
+        )
+        clan_manual_checkbox.grid(row=2, column=0, columnspan=2, sticky="w", padx=(20, 0), pady=2)
+        self._trace_variable(self.clan_battle_manual_var)
+        self._register_config_widget(UIField.CLAN_BATTLE_MANUAL_START.value, clan_manual_checkbox)
+        ToolTip(clan_manual_checkbox, "When enabled, the bot will wait for you to start the battle manually")
+
+        # Upload custom icon button
+        self.upload_icon_btn = ttk.Button(
+            clan_frame,
+            text="📁 Upload Mode Icon",
+            command=self._on_upload_clan_icon,
+            bootstyle="info-outline",
+        )
+        self.upload_icon_btn.grid(row=3, column=0, columnspan=2, sticky="w", padx=(20, 0), pady=(8, 2))
+        self._register_config_widget("upload_clan_icon_btn", self.upload_icon_btn)
+        ToolTip(self.upload_icon_btn, "Upload a custom icon for the selected clan battle mode")
+
+        # Icon status label
+        self.clan_icon_status_label = ttk.Label(
+            clan_frame,
+            text="",
+            font=("TkDefaultFont", 8),
+        )
+        self.clan_icon_status_label.grid(row=4, column=0, columnspan=2, sticky="w", padx=(20, 0), pady=(0, 2))
+
+        # Initialize clan battle widgets state
+        self._on_clan_battle_toggle_changed()
 
     def _create_emulator_tab(self) -> None:
         # Main container frame for the tab
@@ -1256,7 +1341,99 @@ class PyClashBotUI(ttk.Window):
 
         self._notify_config_change()
 
-    def _on_test_model_connection(self) -> None:
+    def _on_clan_battle_toggle_changed(self) -> None:
+        """Handle clan battle enabled toggle change."""
+        enabled = self.clan_battle_enabled_var.get()
+        state = tk.NORMAL if enabled else tk.DISABLED
+
+        # Enable/disable clan battle configuration widgets
+        for key in [
+            UIField.CLAN_BATTLE_MODE.value,
+            UIField.CLAN_BATTLE_MANUAL_START.value,
+            "upload_clan_icon_btn",
+        ]:
+            widget = self._config_widgets.get(key)
+            if widget:
+                try:
+                    if isinstance(widget, ttk.Combobox):
+                        widget.configure(state=READONLY if enabled else tk.DISABLED)
+                    elif isinstance(widget, ttk.Checkbutton):
+                        widget.configure(state=state)
+                    else:
+                        widget.configure(state=state)
+                except tk.TclError:
+                    continue
+
+        # Clear status label when disabled
+        if not enabled and hasattr(self, "clan_icon_status_label"):
+            self.clan_icon_status_label.configure(text="")
+
+        self._notify_config_change()
+
+    def _on_upload_clan_icon(self) -> None:
+        """Handle uploading a custom icon for the selected clan battle mode."""
+        import shutil  # noqa: PLC0415
+        from pathlib import Path  # noqa: PLC0415
+        from tkinter import filedialog  # noqa: PLC0415
+
+        # Get the currently selected clan battle mode
+        selected_mode = self.clan_battle_mode_var.get()
+
+        # Map mode to folder name
+        mode_to_folder = {
+            "Sudden Death Battle": "clan_sudden_death",
+            "Battle": "clan_battle",
+            "Colosseum Duel": "clan_colosseum_duel",
+        }
+
+        folder_name = mode_to_folder.get(selected_mode)
+        if not folder_name:
+            self.clan_icon_status_label.configure(text="❌ Unknown mode", foreground="red")
+            return
+
+        # Open file dialog
+        filetypes = [
+            ("Image files", "*.png *.jpg *.jpeg"),
+            ("PNG files", "*.png"),
+            ("JPEG files", "*.jpg *.jpeg"),
+            ("All files", "*.*"),
+        ]
+
+        filepath = filedialog.askopenfilename(
+            title=f"Select icon for {selected_mode}",
+            filetypes=filetypes,
+        )
+
+        if not filepath:
+            return  # User cancelled
+
+        try:
+            # Get the reference_images folder path
+            detection_path = Path(__file__).parent.parent / "detection" / "reference_images" / folder_name
+
+            # Ensure directory exists
+            detection_path.mkdir(parents=True, exist_ok=True)
+
+            # Count existing files to determine new filename
+            existing_files = list(detection_path.glob("*.png")) + list(detection_path.glob("*.jpg"))
+            new_index = len(existing_files) + 1
+            ext = Path(filepath).suffix
+            new_filename = f"{new_index}{ext}"
+            dest_path = detection_path / new_filename
+
+            # Copy the file
+            shutil.copy2(filepath, dest_path)
+
+            self.clan_icon_status_label.configure(
+                text=f"✓ Saved: {new_filename} for {selected_mode}",
+                foreground="green",
+            )
+
+        except Exception as e:
+            self.clan_icon_status_label.configure(
+                text=f"❌ Error: {str(e)[:40]}",
+                foreground="red",
+            )
         """Test connection to Roboflow model."""
         api_key = self.roboflow_api_key_var.get()
         model_id = self.roboflow_model_id_var.get()

@@ -146,6 +146,18 @@ STRATEGY_SETTINGS = [
     ),
 ]
 
+# Clan Battle Configuration
+CLAN_BATTLE_MODES = ["Sudden Death Battle", "Battle", "Colosseum Duel"]
+
+CLAN_BATTLE_SETTINGS = [
+    ComboConfig(
+        key=UIField.CLAN_BATTLE_MODE,
+        label="Clan Battle Mode",
+        values=CLAN_BATTLE_MODES,
+        default="Battle",
+    ),
+]
+
 # All user configuration keys (auto-generated from configs)
 USER_CONFIG_KEYS = (
     [job.key.value for job in JOBS]
@@ -169,6 +181,11 @@ USER_CONFIG_KEYS = (
         UIField.STRATEGY_AGGRESSION_LEVEL.value,
         UIField.STRATEGY_TOWER_HEALTH_AWARE.value,
         UIField.STRATEGY_PLACEMENT_MODE.value,
+    ]
+    + [  # Clan Battle settings
+        UIField.CLAN_BATTLE_USER_TOGGLE.value,
+        UIField.CLAN_BATTLE_MODE.value,
+        UIField.CLAN_BATTLE_MANUAL_START.value,
     ]
 )
 

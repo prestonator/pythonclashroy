@@ -13,7 +13,11 @@ from pyclashbot.bot.fight import (
     end_fight_state,
     start_fight,
 )
-from pyclashbot.bot.nav import check_if_battle_mode_is_selected, select_mode
+from pyclashbot.bot.nav import (
+    check_if_battle_mode_is_selected,
+    select_mode,
+    start_clan_battle,
+)
 from pyclashbot.bot.upgrade_state import upgrade_cards_state
 from pyclashbot.interface.enums import UIField
 from pyclashbot.utils.caching import (
@@ -240,6 +244,7 @@ class StateOrder:
             "start_fight",
             "1v1_fight",
             "2v2_fight",
+            "clan_fight",
             "end_fight",
         ]
 
@@ -378,38 +383,78 @@ def state_tree(
     if state == "select_battle_mode":
         enabled_modes = get_enabled_fight_modes(job_list)
 
-        if not enabled_modes:
+        # Check if clan battles are enabled
+        clan_battle_enabled = job_list.get(UIField.CLAN_BATTLE_USER_TOGGLE, False)
+
+        if not enabled_modes and not clan_battle_enabled:
             logger.log("No fight modes are enabled. Skipping this state")
             return state_order.next_state(state)
+
+        # If clan battles are enabled, add the selected clan mode to the enabled modes
+        if clan_battle_enabled:
+            clan_mode = job_list.get(UIField.CLAN_BATTLE_MODE, "Battle")
+            if clan_mode not in enabled_modes:
+                enabled_modes.append(clan_mode)
 
         # if more than one mode is selected, just cycle through them
         if len(enabled_modes) > 1:
             selected_mode = battle_mode_state.get_next_fight_mode(job_list)
+
+            # If the fight mode state returns a regular mode but clan is enabled,
+            # we may need to handle clan mode separately
+            if selected_mode is None and clan_battle_enabled:
+                selected_mode = job_list.get(UIField.CLAN_BATTLE_MODE, "Battle")
+
             logger.log(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
             battle_mode_state.mode_used_in_1v1 = selected_mode
-            if select_mode(emulator, selected_mode) is False:
+
+            # Check if this is a clan battle mode
+            if selected_mode in ["Sudden Death Battle", "Battle", "Colosseum Duel"]:
+                # Handle clan battle mode selection
+                manual_start = job_list.get(UIField.CLAN_BATTLE_MANUAL_START, False)
+                if start_clan_battle(emulator, logger, selected_mode, manual_start) == "restart":
+                    return handle_state_failure(
+                        logger, "select_battle_mode", "start_clan_battle", f"Failed to start clan battle: {selected_mode}"
+                    )
+            elif select_mode(emulator, selected_mode) is False:
                 return handle_state_failure(
                     logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
                 )
-        else:
+        elif enabled_modes:
             # if only one mode is selected, check if it's already selected
             selected_mode = enabled_modes[0]
             battle_mode_state.mode_used_in_1v1 = selected_mode
-            logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
-            if not check_if_battle_mode_is_selected(emulator, selected_mode):
-                logger.log(f"{selected_mode} is not selected. Selecting it now.")
-                if select_mode(emulator, selected_mode) is False:
+
+            # Check if this is a clan battle mode
+            if selected_mode in ["Sudden Death Battle", "Battle", "Colosseum Duel"]:
+                logger.log(f"Clan battle mode selected: {selected_mode}")
+                # Clan battles require navigation to clan tab, not main battle selection
+                manual_start = job_list.get(UIField.CLAN_BATTLE_MANUAL_START, False)
+                if start_clan_battle(emulator, logger, selected_mode, manual_start) == "restart":
                     return handle_state_failure(
-                        logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
+                        logger, "select_battle_mode", "start_clan_battle", f"Failed to start clan battle: {selected_mode}"
                     )
             else:
-                logger.log(f"{selected_mode} is already selected.")
+                logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
+                if not check_if_battle_mode_is_selected(emulator, selected_mode):
+                    logger.log(f"{selected_mode} is not selected. Selecting it now.")
+                    if select_mode(emulator, selected_mode) is False:
+                        return handle_state_failure(
+                            logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
+                        )
+                else:
+                    logger.log(f"{selected_mode} is already selected.")
 
         return state_order.next_state(state)
 
     if state == "start_fight":
         if battle_mode_state.mode_used_in_1v1 is None:
             logger.log("No battle mode selected. Skipping this state")
+            return state_order.next_state(state)
+
+        # Skip start_fight for clan battles - they're started in select_battle_mode
+        if battle_mode_state.mode_used_in_1v1 in ["Sudden Death Battle", "Battle", "Colosseum Duel"]:
+            logger.log("Clan battle mode - start_fight already handled in select_battle_mode")
             return state_order.next_state(state)
 
         # Start fight using the selected mode directly
@@ -482,6 +527,53 @@ def state_tree(
             is False
         ):
             return handle_state_failure(logger, "2v2_fight", "do_2v2_fight_state", "2v2 fight failed")
+
+        return state_order.next_state(state)
+
+    if state == "clan_fight":
+        # Check if clan battles are enabled
+        if not job_list.get(UIField.CLAN_BATTLE_USER_TOGGLE, False):
+            logger.log("Clan battles not enabled. Skipping this state")
+            return state_order.next_state(state)
+
+        # Check if we're actually in clan battle mode
+        if battle_mode_state.mode_used_in_1v1 not in [
+            "Sudden Death Battle",
+            "Battle",
+            "Colosseum Duel",
+        ]:
+            logger.log(f"Current mode '{battle_mode_state.mode_used_in_1v1}' is not a clan battle. Skipping.")
+            return state_order.next_state(state)
+
+        random_plays_flag = job_list.get(UIField.RANDOM_PLAYS_USER_TOGGLE, False)
+        recording_flag = job_list.get(UIField.RECORD_FIGHTS_TOGGLE, False)
+
+        # Get strategy configuration
+        strategy_config = {
+            "elixir_mode": job_list.get(UIField.STRATEGY_ELIXIR_MODE, "Adaptive"),
+            "push_mode": job_list.get(UIField.STRATEGY_PUSH_MODE, "Adaptive"),
+            "aggression_level": job_list.get(UIField.STRATEGY_AGGRESSION_LEVEL, "Moderate"),
+        }
+
+        # Use the same fight logic as 1v1 for clan battles
+        if (
+            do_fight_state(
+                emulator,
+                logger,
+                random_plays_flag,
+                battle_mode_state.mode_used_in_1v1,
+                False,
+                recording_flag,
+                strategy_config,
+            )
+            is False
+        ):
+            return handle_state_failure(
+                logger, "clan_fight", "do_fight_state", f"Clan fight failed in mode: {battle_mode_state.mode_used_in_1v1}"
+            )
+
+        # Log the clan battle fight
+        logger.increment_clan_battle_fights()
 
         return state_order.next_state(state)
 
