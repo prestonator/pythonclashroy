@@ -1415,7 +1415,8 @@ class PyClashBotUI(ttk.Window):
             detection_path.mkdir(parents=True, exist_ok=True)
 
             # Count existing files to determine new filename
-            existing_files = list(detection_path.glob("*.png")) + list(detection_path.glob("*.jpg"))
+            image_extensions = ["*.png", "*.jpg", "*.jpeg"]
+            existing_files = [f for ext in image_extensions for f in detection_path.glob(ext)]
             new_index = len(existing_files) + 1
             ext = Path(filepath).suffix
             new_filename = f"{new_index}{ext}"
@@ -1434,6 +1435,8 @@ class PyClashBotUI(ttk.Window):
                 text=f"❌ Error: {str(e)[:40]}",
                 foreground="red",
             )
+
+    def _on_test_model_connection(self) -> None:
         """Test connection to Roboflow model."""
         api_key = self.roboflow_api_key_var.get()
         model_id = self.roboflow_model_id_var.get()
