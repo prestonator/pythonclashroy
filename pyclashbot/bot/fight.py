@@ -13,12 +13,14 @@ from pyclashbot.bot.card_detection import (
     switch_side,
 )
 from pyclashbot.bot.nav import (
+    CLAN_BATTLE_MODES,
     check_for_in_battle_with_delay,
     check_for_trophy_reward_menu,
     check_if_in_battle,
     check_if_on_clash_main_menu,
     get_to_activity_log,
     handle_trophy_reward_menu,
+    start_clan_battle,
     wait_for_battle_start,
     wait_for_clash_main_menu,
 )
@@ -184,13 +186,18 @@ def start_fight(emulator, logger, mode) -> bool:
 
     logger.change_status(f"Starting a {mode} fight")
 
-    # Check if on clash main menu
+    # Handle clan battle modes separately - they require clan tab navigation
+    if mode in CLAN_BATTLE_MODES:
+        logger.log(f"{mode} is a clan battle mode - using clan tab navigation")
+        return start_clan_battle(emulator, logger, mode)
+
+    # Check if on clash main menu for standard modes
     logger.log("Checking if on clash main before starting fight...")
     if not check_if_on_clash_main_menu(emulator):
         logger.change_status("Not on clash main menu, cannot start fight")
         return False
 
-    # For all modes (1v1 and 2v2), use the same start button
+    # For all standard modes (1v1 and 2v2), use the same start button
     # Mode is already set by select_mode() in states.py, just click start button
     emulator.click(START_BATTLE_BUTTON[0], START_BATTLE_BUTTON[1])
     logger.log(f"Clicked Start button at {START_BATTLE_BUTTON}")

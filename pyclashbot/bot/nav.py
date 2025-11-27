@@ -18,6 +18,13 @@ OK_BUTTON_COORDS_IN_TROPHY_REWARD_PAGE = (209, 599)
 CLASH_MAIN_MENU_DEADSPACE_COORD = (32, 520)
 CLASH_MAIN_WAIT_TIMEOUT = 240  # s
 
+# Clan tab navigation - the clan tab is to the right of the main battle page
+# Users need to swipe right or click the clan tab button to access clan battles
+CLAN_TAB_BUTTON_COORD = (370, 598)  # Approximate location of clan tab icon
+
+# Clan battle modes that require navigating to the clan tab
+CLAN_BATTLE_MODES = ["Clan Battle", "Sudden Death", "Colosseum Duel"]
+
 
 def wait_for_battle_start(emulator, logger, timeout: int = 120) -> bool:
     """Waits for any battle to start (1v1 or 2v2).
@@ -520,6 +527,232 @@ def wait_for_clash_main_burger_button_options_menu(
     return "good"
 
 
+# =============================================================================
+# CLAN TAB NAVIGATION FUNCTIONS
+# =============================================================================
+
+
+def navigate_to_clan_tab(emulator, logger: Logger) -> bool:
+    """Navigate from the main menu to the clan tab (right side of main page).
+
+    The clan tab contains the clan battle modes (Clan Battle, Sudden Death, Colosseum Duel).
+    Click the clan tab button on the right side of the bottom navigation to access this page.
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+
+    Returns:
+        bool: True if successfully navigated to clan tab, False otherwise.
+    """
+    logger.change_status("Navigating to clan tab...")
+
+    # First, make sure we're on the clash main menu
+    if not check_if_on_clash_main_menu(emulator):
+        logger.log("Not on clash main menu, cannot navigate to clan tab")
+        return False
+
+    # Click the clan tab button (right side of bottom navigation)
+    logger.log("Clicking clan tab button")
+    emulator.click(CLAN_TAB_BUTTON_COORD[0], CLAN_TAB_BUTTON_COORD[1])
+    time.sleep(2)
+
+    # Wait for clan tab to load
+    timeout = 10
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if check_if_on_clan_tab(emulator):
+            logger.log("Successfully navigated to clan tab")
+            return True
+        time.sleep(0.5)
+
+    logger.log("Failed to navigate to clan tab - timeout")
+    return False
+
+
+def check_if_on_clan_tab(emulator) -> bool:
+    """Check if we're currently on the clan tab page.
+
+    This function uses image recognition to detect if we're on the clan tab.
+    Users should add reference images to the 'clan_tab_button' folder.
+
+    Args:
+        emulator: The emulator controller.
+
+    Returns:
+        bool: True if on clan tab, False otherwise.
+    """
+    image = emulator.screenshot()
+
+    # Try to find clan tab indicator using reference images
+    coord = find_image(
+        image,
+        "clan_tab_button",
+        tolerance=0.85,
+    )
+
+    return coord is not None
+
+
+def find_clan_battle_button(emulator, mode: str):
+    """Find a specific clan battle button on the clan tab page.
+
+    Args:
+        emulator: The emulator controller.
+        mode: The clan battle mode to find ("Clan Battle", "Sudden Death", "Colosseum Duel")
+
+    Returns:
+        tuple[int, int] | None: Coordinates of the button if found, None otherwise.
+    """
+    if mode not in CLAN_BATTLE_MODES:
+        logging.error(f'Mode "{mode}" is not a clan battle mode')
+        return None
+
+    mode2folder = {
+        "Clan Battle": "fight_mode_clan_battle",
+        "Sudden Death": "fight_mode_sudden_death",
+        "Colosseum Duel": "fight_mode_colosseum_duel",
+    }
+
+    look_folder = mode2folder[mode]
+    image = emulator.screenshot()
+
+    button_location = find_image(
+        image,
+        look_folder,
+        tolerance=0.85,
+    )
+
+    return button_location
+
+
+def click_clan_battle_popup_button(emulator, logger: Logger) -> bool:
+    """Click the 'Battle' button on the clan battle popup.
+
+    After clicking a clan battle mode button, a popup appears with a 'Battle' button.
+    This function finds and clicks that button.
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+
+    Returns:
+        bool: True if button was found and clicked, False otherwise.
+    """
+    logger.log("Looking for battle button on clan battle popup...")
+
+    image = emulator.screenshot()
+
+    # Try to find the battle button using reference images
+    coord = find_image(
+        image,
+        "clan_battle_popup_button",
+        tolerance=0.85,
+    )
+
+    if coord is not None:
+        logger.log(f"Found battle button at {coord}, clicking it")
+        emulator.click(coord[0], coord[1])
+        return True
+
+    logger.log("Could not find battle button on popup")
+    return False
+
+
+def start_clan_battle(emulator, logger: Logger, mode: str) -> bool:
+    """Start a clan battle by navigating to the clan tab and clicking the appropriate buttons.
+
+    This function handles the complete flow for starting a clan battle:
+    1. Navigate to the clan tab
+    2. Find and click the specific clan battle button
+    3. Click the 'Battle' button on the popup
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+        mode: The clan battle mode ("Clan Battle", "Sudden Death", "Colosseum Duel")
+
+    Returns:
+        bool: True if battle was started successfully, False otherwise.
+    """
+    if mode not in CLAN_BATTLE_MODES:
+        logger.log(f'"{mode}" is not a clan battle mode')
+        return False
+
+    logger.change_status(f"Starting {mode}...")
+
+    # Step 1: Navigate to clan tab
+    if not navigate_to_clan_tab(emulator, logger):
+        logger.log("Failed to navigate to clan tab")
+        return False
+
+    # Step 2: Find and click the clan battle button
+    # Scroll and search for the battle mode
+    search_timeout = 15
+    start_time = time.time()
+
+    def scroll_down_in_clan_tab(emulator):
+        start_y = 400
+        end_y = 300
+        x = 200
+        emulator.swipe(x, start_y, x, end_y)
+        time.sleep(1)
+
+    while time.time() - start_time < search_timeout:
+        coord = find_clan_battle_button(emulator, mode)
+        if coord is not None:
+            logger.log(f'Found "{mode}" button at {coord}, clicking it')
+            emulator.click(coord[0], coord[1])
+            time.sleep(2)
+
+            # Step 3: Click the battle button on the popup
+            popup_timeout = 5
+            popup_start = time.time()
+            while time.time() - popup_start < popup_timeout:
+                if click_clan_battle_popup_button(emulator, logger):
+                    logger.log("Successfully clicked battle button on popup")
+                    return True
+                time.sleep(0.5)
+
+            logger.log("Failed to find battle button on popup")
+            return False
+
+        scroll_down_in_clan_tab(emulator)
+
+    logger.log(f'Could not find "{mode}" button on clan tab')
+    return False
+
+
+def return_to_main_from_clan_tab(emulator, logger: Logger) -> bool:
+    """Return to the main menu from the clan tab.
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+
+    Returns:
+        bool: True if successfully returned to main menu, False otherwise.
+    """
+    logger.log("Returning to main menu from clan tab...")
+
+    # Click the battle/home tab button (left side of bottom navigation)
+    home_tab_coord = (50, 598)
+    emulator.click(home_tab_coord[0], home_tab_coord[1])
+    time.sleep(2)
+
+    # Wait for main menu to load
+    timeout = 10
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if check_if_on_clash_main_menu(emulator):
+            logger.log("Successfully returned to main menu")
+            return True
+        time.sleep(0.5)
+
+    logger.log("Failed to return to main menu - timeout")
+    return False
+
+
 def check_if_battle_mode_is_selected(emulator, mode: str):
     """Checks if the given battle mode is selected on the clash main menu.
 
@@ -529,6 +762,7 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
 
     Returns:
         True if the mode is selected, False otherwise.
+        For clan battle modes, always returns False since they're on a separate tab.
     """
     expected_mode_types = [
         "Classic 1v1",
@@ -544,13 +778,16 @@ def check_if_battle_mode_is_selected(emulator, mode: str):
         logging.error(f'Fatal error: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
         return None
 
+    # Clan battle modes are on a separate tab, not selectable on main menu
+    # Return False so the state machine will try to select them (which triggers clan tab navigation)
+    if mode in CLAN_BATTLE_MODES:
+        logging.debug(f'"{mode}" is a clan battle mode - not selectable on main menu')
+        return False
+
     mode2folder = {
         "Classic 1v1": "selected_1v1_on_main",
         "Classic 2v2": "selected_2v2_on_main",
         "Trophy Road": "selected_trophy_road_on_main",
-        "Clan Battle": "selected_clan_battle_on_main",
-        "Sudden Death": "selected_sudden_death_on_main",
-        "Colosseum Duel": "selected_colosseum_duel_on_main",
     }
 
     look_folder = mode2folder[mode]
@@ -617,6 +854,22 @@ def find_fight_mode_icon(emulator, mode: str):
 
 
 def select_mode(emulator, mode: str):
+    """Select a battle mode.
+
+    For standard modes (Classic 1v1, Classic 2v2, Trophy Road), this uses the
+    main menu's mode selection panel.
+
+    For clan battle modes (Clan Battle, Sudden Death, Colosseum Duel), this
+    returns True immediately as these modes are handled separately via the
+    clan tab navigation in the start_fight function.
+
+    Args:
+        emulator: The emulator controller.
+        mode: The battle mode to select.
+
+    Returns:
+        bool: True if mode was selected successfully, False otherwise.
+    """
     # Check if the mode is valid
     expected_mode_types = [
         "Classic 1v1",
@@ -635,7 +888,13 @@ def select_mode(emulator, mode: str):
         logging.warning(f'Warning: Mode "{mode}" is not a valid mode type. Expected one of {expected_mode_types}.')
         return False
 
-    # must be on clash main
+    # Clan battle modes are handled via the clan tab, not the main menu mode selector
+    # Return True here and let start_fight handle the clan tab navigation
+    if mode in CLAN_BATTLE_MODES:
+        logging.debug(f'"{mode}" is a clan battle mode - will be handled via clan tab navigation')
+        return True
+
+    # must be on clash main for standard modes
     if not check_if_on_clash_main_menu(emulator):
         logging.warning("Not on clash main menu, cannot select a fight mode")
         return False

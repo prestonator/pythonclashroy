@@ -16,6 +16,15 @@ These modes use the same battle strategy engine as the existing 1v1 and 2v2 batt
 - Aggression level settings (Defensive, Moderate, Aggressive, Very Aggressive)
 - Tower health-aware decision making
 
+## Important: Clan Tab Navigation
+
+**Clan battles are located on the Clan tab**, which is to the right of the main battle page. This is different from standard battle modes (1v1, 2v2, Trophy Road) which are selected from the main menu.
+
+The bot will:
+1. Navigate to the Clan tab (right side of bottom navigation)
+2. Find and click the specific clan battle button (Clan Battle, Sudden Death, or Colosseum Duel)
+3. Click the "Battle" button on the popup that appears
+
 ## Setup Instructions
 
 ### Step 1: Enable Clan Battle Modes in GUI
@@ -30,44 +39,46 @@ These modes use the same battle strategy engine as the existing 1v1 and 2v2 batt
 
 ### Step 2: Add Reference Images (Required)
 
-The bot uses image recognition to find and select battle modes in the game. You need to provide screenshots of the battle icons for each mode you want to use.
+The bot uses image recognition to navigate to clan battles and find the battle buttons. You need to provide screenshots for several elements.
 
 #### Where to place images:
 
 ```
 pyclashbot/detection/reference_images/
-├── fight_mode_clan_battle/        # Clan Battle mode icon images
-├── fight_mode_sudden_death/       # Sudden Death Battle mode icon images
-├── fight_mode_colosseum_duel/     # Colosseum Duel mode icon images
-├── selected_clan_battle_on_main/  # Clan Battle when selected on main screen
-├── selected_sudden_death_on_main/ # Sudden Death when selected on main screen
-└── selected_colosseum_duel_on_main/ # Colosseum Duel when selected on main screen
+├── clan_tab_button/               # Clan tab indicator (to detect when on clan tab)
+├── fight_mode_clan_battle/        # Clan Battle mode button on clan tab
+├── fight_mode_sudden_death/       # Sudden Death Battle button on clan tab
+├── fight_mode_colosseum_duel/     # Colosseum Duel button on clan tab
+└── clan_battle_popup_button/      # "Battle" button on clan battle popups
 ```
 
 #### How to capture screenshots:
 
-1. **Open Clash Royale** on your emulator
-2. **Navigate to the mode selection menu** (click the battle button to see all available modes)
-3. **Take a screenshot** of each battle mode icon you want to use
-4. **Crop the image** to just include the battle icon (similar to existing icons in `fight_mode_1v1/`, `fight_mode_2v2/`, etc.)
-5. **Save as PNG** with names like `1.png`, `2.png`, etc.
+1. **For `clan_tab_button/`**:
+   - Open Clash Royale and navigate to the Clan tab
+   - Screenshot an indicator that shows you're on the clan tab (e.g., clan shield, clan name area)
+   - Crop to just the distinctive element
 
-#### Example using existing images as reference:
+2. **For `fight_mode_clan_battle/`, `fight_mode_sudden_death/`, `fight_mode_colosseum_duel/`**:
+   - Navigate to the Clan tab
+   - Screenshot each battle mode button as it appears on the page
+   - Crop to just the battle button icon
 
-Look at the existing reference images in these directories for guidance:
-- `pyclashbot/detection/reference_images/fight_mode_1v1/` - 1v1 battle icons
-- `pyclashbot/detection/reference_images/fight_mode_2v2/` - 2v2 battle icons
-- `pyclashbot/detection/reference_images/fight_mode_trophy_road/` - Trophy Road icons
+3. **For `clan_battle_popup_button/`**:
+   - Click on a clan battle mode to open its popup
+   - Screenshot the "Battle" button that appears
+   - Crop to just the button
 
-Your clan battle icons should be:
-- Similar size to the existing reference images
-- Cropped to just show the distinctive part of the icon
-- Clear and not blurry
-- Multiple variations can be helpful (different emulators may render slightly differently)
+#### Tips for good reference images:
+
+- Images should be clear and not blurry
+- Crop tightly to just the element you want to detect
+- Multiple variations help (different emulators may render slightly differently)
+- Save as PNG with names like `1.png`, `2.png`, etc.
 
 ### Step 3: Using Roboflow for Better Detection (Optional)
 
-If you have access to Roboflow or want more accurate card/icon detection:
+If you have access to Roboflow or want more accurate icon detection:
 
 1. **Train a Roboflow model** with your clan battle icons
 2. **Configure the model** in the **Misc** tab:
@@ -131,18 +142,28 @@ Multiple round battles benefit from:
 
 ## Troubleshooting
 
-### "Mode not found" errors
+### "Failed to navigate to clan tab"
 
-If the bot can't find the clan battle mode:
-1. Make sure you've added reference images to the correct folders
-2. Try taking multiple screenshots (different lighting, render modes)
-3. Lower the tolerance if needed (edit `nav.py` and change `tolerance=0.9` to `tolerance=0.8`)
+1. Make sure you've added reference images to `clan_tab_button/`
+2. Verify the clan tab button location matches your emulator
+3. Check that you're starting from the main menu
+
+### "Could not find battle button on clan tab"
+
+1. Make sure you've added reference images to the appropriate folder
+2. Ensure the clan battle mode is actually available (your clan must have active battles)
+3. Try taking screenshots at different scroll positions
+
+### "Could not find battle button on popup"
+
+1. Add reference images of the "Battle" button to `clan_battle_popup_button/`
+2. Wait for the popup to fully load before the bot tries to click
 
 ### Bot doesn't start battle
 
 1. Ensure Clash Royale is set to English
-2. Make sure you're on the main menu before starting
-3. Check that your clan has active battles available
+2. Make sure your clan has active battles available
+3. Check the bot logs for specific error messages
 
 ### Battle strategy issues
 
@@ -152,7 +173,7 @@ If the bot can't find the clan battle mode:
 
 ## Battle Statistics
 
-The bot now tracks separate statistics for clan battles:
+The bot tracks separate statistics for clan battles:
 - Clan Battle fights
 - Sudden Death fights
 - Colosseum Duel fights
@@ -166,18 +187,30 @@ View these in the **Stats** tab of the GUI.
 - `pyclashbot/interface/enums.py` - Added UIField enums and StatField enums
 - `pyclashbot/interface/config.py` - Added JobConfig entries
 - `pyclashbot/interface/ui.py` - Added UI toggles
-- `pyclashbot/bot/nav.py` - Added mode detection and selection
+- `pyclashbot/bot/nav.py` - Added clan tab navigation and battle button detection
 - `pyclashbot/bot/states.py` - Added enabled modes support
-- `pyclashbot/bot/fight.py` - Added mode validation and logging
+- `pyclashbot/bot/fight.py` - Added clan battle mode handling
 - `pyclashbot/utils/logger.py` - Added fight counters
 
-### How Battle Detection Works
+### How Clan Battle Navigation Works
 
-1. Bot navigates to the mode selection menu
-2. Scrolls through available modes
-3. Uses template matching to find the target mode icon
-4. Clicks the icon to select the mode
-5. Starts the battle using the same logic as other modes
+1. Bot starts on the main menu
+2. Clicks the Clan tab button (bottom right navigation)
+3. Waits for clan tab to load (using image recognition)
+4. Scrolls through the clan tab to find the target battle mode
+5. Clicks the battle mode button
+6. Waits for the popup to appear
+7. Clicks the "Battle" button on the popup
+8. Proceeds with normal battle flow
+
+### Differences from Standard Modes
+
+| Aspect | Standard Modes | Clan Battle Modes |
+|--------|---------------|-------------------|
+| Location | Main menu mode selector | Clan tab |
+| Selection | Mode dropdown panel | Direct button click |
+| Popup | Sometimes (2v2 quickmatch) | Always ("Battle" button) |
+| Navigation | Single click | Tab change + scroll + click |
 
 ## Contributing
 
