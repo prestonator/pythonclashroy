@@ -20,6 +20,7 @@ from typing import Literal
 
 from pyclashbot.bot.fight import (
     _fight_loop,
+    _random_fight_loop,
     end_fight_state,
 )
 from pyclashbot.bot.nav import (
@@ -33,6 +34,11 @@ from pyclashbot.utils.logger import Logger
 CLAN_TAB_COORD = (355, 598)  # Clan tab button on bottom navigation
 CLAN_WAR_ICON_COORD = (200, 300)  # Approximate location of clan war button
 CLAN_WAR_BATTLE_POPUP_BUTTON = (200, 400)  # "Battle" button in clan war popup
+
+# Timing constants
+CLAN_WAR_BATTLE_TIMEOUT_SECONDS = 300  # 5 minutes to wait for battle
+POPUP_DISMISS_INTERVAL_SECONDS = 10  # Interval between popup dismiss clicks
+POST_BATTLE_WAIT_SECONDS = 5  # Wait time after battle ends
 
 
 def navigate_to_clan_tab(emulator, logger: Logger) -> bool:
@@ -90,7 +96,7 @@ def navigate_to_clan_war_battle(emulator, logger: Logger) -> bool:
 def wait_for_clan_war_battle(
     emulator,
     logger: Logger,
-    timeout: int = 300,
+    timeout: int = CLAN_WAR_BATTLE_TIMEOUT_SECONDS,
 ) -> bool:
     """Wait for a clan war battle to start.
 
@@ -120,7 +126,7 @@ def wait_for_clan_war_battle(
             return True
 
         # Click deadspace periodically to dismiss any popups
-        if elapsed % 10 == 0:  # Every 10 seconds
+        if elapsed % POPUP_DISMISS_INTERVAL_SECONDS == 0:
             emulator.click(20, 200)
 
         time.sleep(1)
@@ -180,8 +186,6 @@ def do_clan_war_fight_state(
 
     # Run the fight loop
     if random_fight_mode:
-        from pyclashbot.bot.fight import _random_fight_loop  # noqa: PLC0415
-
         if _random_fight_loop(emulator, logger) is False:
             logger.change_status("Failure in random fight loop for clan war")
             return False
@@ -192,7 +196,7 @@ def do_clan_war_fight_state(
     # Log the clan war fight
     logger.increment_clan_war_fights()
 
-    time.sleep(5)  # Wait for post-battle screen
+    time.sleep(POST_BATTLE_WAIT_SECONDS)  # Wait for post-battle screen
     return True
 
 
