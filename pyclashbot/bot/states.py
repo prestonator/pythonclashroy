@@ -309,6 +309,7 @@ def state_tree(
             not job_list.get(UIField.CLASSIC_1V1_USER_TOGGLE, False)
             and not job_list.get(UIField.CLASSIC_2V2_USER_TOGGLE, False)
             and not job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False)
+            and not job_list.get(UIField.CLAN_WAR_USER_TOGGLE, False)
             and not job_list["upgrade_user_toggle"]
         ):
             logger.log("No fight jobs, or card jobs are even toggled, so skipping random deck state.")
