@@ -12,6 +12,25 @@ from pyclashbot.bot.card_detection import (
     get_play_coords_for_card,
     switch_side,
 )
+from pyclashbot.bot.fight_data import (
+    BATTLE_LOG_WIN_CHECK_LINES,
+    CLASH_MAIN_DEADSPACE_COORD,
+    CLOSE_BATTLE_LOG_BUTTON,
+    CLOSE_THIS_CHALLENGE_PAGE_BUTTON,
+    ELIXER_WAIT_TIMEOUT,
+    ELIXIR_COLOR,
+    ELIXIR_COORDS,
+    EMOTE_BUTTON_COORD,
+    EMOTE_ICON_COORDS,
+    HAND_CARDS_COORDS,
+    MAG_DUMP_CARD_COORDS,
+    POST_BATTLE_BUTTON_COORD,
+    POST_BATTLE_OK_COLORS,
+    POST_BATTLE_OK_PIXELS,
+    QUICKMATCH_BUTTON_2V2,
+    QUICKMATCH_BUTTON_COORD,
+    START_BATTLE_BUTTON,
+)
 from pyclashbot.bot.nav import (
     check_for_in_battle_with_delay,
     check_for_trophy_reward_menu,
@@ -31,51 +50,7 @@ from pyclashbot.detection.image_rec import (
 )
 from pyclashbot.utils.logger import Logger
 
-# Button coordinates for battle navigation
-CLOSE_BATTLE_LOG_BUTTON: tuple[Literal[365], Literal[72]] = (365, 72)
-START_BATTLE_BUTTON = (203, 487)
-QUICKMATCH_BUTTON_2V2 = (280, 350)
-CLOSE_THIS_CHALLENGE_PAGE_BUTTON = (27, 22)
 
-# coords of the cards in the hand
-HAND_CARDS_COORDS = [
-    (142, 561),
-    (210, 563),
-    (272, 561),
-    (341, 563),
-]
-
-QUICKMATCH_BUTTON_COORD = (
-    274,
-    353,
-)  # coord of the quickmatch button after you click the battle button
-ELIXER_WAIT_TIMEOUT = 40  # way to high but someone got errors with that so idk
-
-EMOTE_BUTTON_COORD = (67, 521)
-EMOTE_ICON_COORDS = [
-    (124, 419),
-    (182, 420),
-    (255, 411),
-    (312, 423),
-    (133, 471),
-    (188, 472),
-    (243, 469),
-    (308, 470),
-]
-CLASH_MAIN_DEADSPACE_COORD = (20, 520)
-ELIXIR_COORDS = [
-    [613, 149],
-    [613, 165],
-    [613, 188],
-    [613, 212],
-    [613, 240],
-    [613, 262],
-    [613, 287],
-    [613, 314],
-    [613, 339],
-    [613, 364],
-]
-ELIXIR_COLOR = [240, 137, 244]
 
 
 def do_fight_state(
@@ -211,18 +186,11 @@ def send_emote(emulator, logger: Logger) -> None:
 
 
 def mag_dump(emulator, logger: Logger) -> None:
-    card_coords = [
-        (137, 559),
-        (206, 559),
-        (274, 599),
-        (336, 555),
-    ]
-
     logger.log("Mag dumping...")
     for index in range(3):
         logger.change_status(f"mag dump play {index}")
         card_index = random.randint(0, 3)
-        card_coord = card_coords[card_index]
+        card_coord = MAG_DUMP_CARD_COORDS[card_index]
         play_coord = (random.randint(101, 440), random.randint(50, 526))
 
         # record play here
@@ -373,32 +341,41 @@ def check_pixels_for_win_in_battle_log(emulator) -> bool:
     """Method to check pixels that appear in the battle
     log to determing if the previous game was a win
     """
-    line1 = check_line_for_color(
-        emulator,
-        x_1=47,
-        y_1=135,
-        x_2=109,
-        y_2=154,
-        color=(255, 51, 102),
-    )
-    line2 = check_line_for_color(
-        emulator,
-        x_1=46,
-        y_1=152,
-        x_2=115,
-        y_2=137,
-        color=(255, 51, 102),
-    )
-    line3 = check_line_for_color(
-        emulator,
-        x_1=47,
-        y_1=144,
-        x_2=110,
-        y_2=147,
-        color=(255, 51, 102),
-    )
+    for line in BATTLE_LOG_WIN_CHECK_LINES:
+        if not check_line_for_color(
+            emulator,
+            x_1=line["x_1"],
+            y_1=line["y_1"],
+            x_2=line["x_2"],
+            y_2=line["y_2"],
+            color=line["color"],
+        ):
+            return True  # If any line is missing, it's a win (logic inverted from original?)
 
-    if line1 and line2 and line3:
+    # Wait, original logic:
+    # line1 = check...
+    # line2 = check...
+    # line3 = check...
+    # if line1 and line2 and line3: return False (Loss)
+    # return True (Win)
+
+    # So if ALL lines are present (red color), it's a LOSS.
+    # If ANY line is missing, it's a WIN.
+
+    lines_present = []
+    for line in BATTLE_LOG_WIN_CHECK_LINES:
+        lines_present.append(
+            check_line_for_color(
+                emulator,
+                x_1=line["x_1"],
+                y_1=line["y_1"],
+                x_2=line["x_2"],
+                y_2=line["y_2"],
+                color=line["color"],
+            )
+        )
+
+    if all(lines_present):
         return False
     return True
 
@@ -417,21 +394,10 @@ def find_post_battle_button(emulator) -> tuple[int, int] | None:
     iar = emulator.screenshot()
 
     # Method 1: Fast pixel-based detection
-    pixels = [
-        iar[545][178],
-        iar[547][239],
-        iar[553][214],
-        iar[554][201],
-    ]
-    colors = [
-        [255, 187, 104],
-        [255, 187, 104],
-        [255, 255, 255],
-        [255, 255, 255],
-    ]
+    pixels = [iar[p[0]][p[1]] for p in POST_BATTLE_OK_PIXELS]
 
-    if check_pixels_against_colors(pixels, colors, tol=20):
-        return (200, 550)
+    if check_pixels_against_colors(pixels, POST_BATTLE_OK_COLORS, tol=20):
+        return POST_BATTLE_BUTTON_COORD
 
     # Method 2: Image recognition for OK button
     coord = find_image(iar, "ok_post_battle_button", tolerance=0.85)
