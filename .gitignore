@@ -9,3 +9,5 @@ recordings
 .claude/
 .claude/settings.local.json
 pyclashbot.egg-info/
+cards/
+digits/
