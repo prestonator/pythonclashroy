@@ -78,12 +78,23 @@ def make_job_dictionary(values: dict[str, Any]) -> dict[str, Any]:
 
     job_dictionary[UIField.ADB_SERIAL.value] = values.get(UIField.ADB_SERIAL.value)
 
+    # Clan Battle settings
+    job_dictionary[UIField.CLAN_BATTLE_USER_TOGGLE.value] = as_bool(UIField.CLAN_BATTLE_USER_TOGGLE)
+    job_dictionary[UIField.CLAN_BATTLE_MODE.value] = values.get(UIField.CLAN_BATTLE_MODE.value, "Battle")
+    job_dictionary[UIField.CLAN_BATTLE_MANUAL_START.value] = as_bool(UIField.CLAN_BATTLE_MANUAL_START)
+
     # AI/ML Model settings
     job_dictionary[UIField.MODEL_ENABLED_TOGGLE.value] = as_bool(UIField.MODEL_ENABLED_TOGGLE)
     job_dictionary[UIField.MODEL_TYPE.value] = values.get(UIField.MODEL_TYPE.value, 'roboflow')
     job_dictionary[UIField.ROBOFLOW_API_KEY.value] = values.get(UIField.ROBOFLOW_API_KEY.value)
     job_dictionary[UIField.ROBOFLOW_MODEL_ID.value] = values.get(UIField.ROBOFLOW_MODEL_ID.value)
+    job_dictionary[UIField.ROBOFLOW_WORKFLOW_ID.value] = values.get(UIField.ROBOFLOW_WORKFLOW_ID.value)
     job_dictionary[UIField.MODEL_CONFIDENCE_THRESHOLD.value] = values.get(UIField.MODEL_CONFIDENCE_THRESHOLD.value, 0.7)
+
+    # Strategy settings
+    job_dictionary[UIField.STRATEGY_ELIXIR_MODE.value] = values.get(UIField.STRATEGY_ELIXIR_MODE.value, 'Adaptive')
+    job_dictionary[UIField.STRATEGY_PUSH_MODE.value] = values.get(UIField.STRATEGY_PUSH_MODE.value, 'Adaptive')
+    job_dictionary[UIField.STRATEGY_AGGRESSION_LEVEL.value] = values.get(UIField.STRATEGY_AGGRESSION_LEVEL.value, 'Moderate')
 
     return job_dictionary
 

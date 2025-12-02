@@ -658,6 +658,217 @@ def select_mode(emulator, mode: str):
     return False
 
 
+# =============================================================================
+# CLAN BATTLE NAVIGATION
+# =============================================================================
+
+# Clan tab is to the right of the main battle tab at the bottom center
+CLAN_TAB_BUTTON_COORD = (308, 598)  # Directly to the right of main tab
+
+# Map clan battle mode names to their reference image folders
+CLAN_MODE_TO_FOLDER = {
+    "Sudden Death Battle": "clan_sudden_death",
+    "Battle": "clan_battle",
+    "Colosseum Duel": "clan_colosseum_duel",
+}
+
+
+def navigate_to_clan_tab(emulator, logger: Logger) -> Literal["restart", "good"]:
+    """Navigate from clash main menu to the clan tab.
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+
+    Returns:
+        "restart" if navigation failed, "good" otherwise.
+    """
+    logger.change_status(status="Navigating to clan tab")
+
+    # Must be on main menu first
+    if not check_if_on_clash_main_menu(emulator):
+        logger.log("Not on clash main menu, cannot navigate to clan tab")
+        return "restart"
+
+    # Click the clan tab button (to the right of main tab)
+    emulator.click(CLAN_TAB_BUTTON_COORD[0], CLAN_TAB_BUTTON_COORD[1])
+    time.sleep(2)
+
+    # Wait for clan page to load
+    start_time = time.time()
+    timeout = 10  # seconds
+    while time.time() - start_time < timeout:
+        if check_if_on_clan_page(emulator):
+            logger.change_status(status="Made it to clan page")
+            return "good"
+        time.sleep(0.5)
+
+    logger.log("Failed to navigate to clan tab")
+    return "restart"
+
+
+def check_if_on_clan_page(emulator) -> bool:
+    """Check if currently on the clan page.
+
+    This uses pixel-based detection to determine if we're on the clan page.
+
+    Args:
+        emulator: The emulator controller.
+
+    Returns:
+        bool: True if on clan page, False otherwise.
+    """
+    # Try image-based detection first
+    image = emulator.screenshot()
+    coord = find_image(image, "clan_tab_button", tolerance=0.85)
+    if coord is not None:
+        return True
+
+    # Fallback pixel-based detection can be added here if needed
+    # For now, return False if image detection fails
+    return False
+
+
+def find_clan_battle_mode_icon(emulator, mode: str) -> tuple[int, int] | None:
+    """Find the icon for a specific clan battle mode on the clan page.
+
+    Args:
+        emulator: The emulator controller.
+        mode: The clan battle mode name (e.g., "Sudden Death Battle", "Battle", "Colosseum Duel")
+
+    Returns:
+        tuple[int, int] | None: Coordinates of the icon if found, None otherwise.
+    """
+    if mode not in CLAN_MODE_TO_FOLDER:
+        logging.warning(f"Unknown clan battle mode: {mode}")
+        return None
+
+    folder = CLAN_MODE_TO_FOLDER[mode]
+    image = emulator.screenshot()
+
+    coord = find_image(image, folder, tolerance=0.85)
+    return coord
+
+
+def find_clan_battle_button(emulator) -> tuple[int, int] | None:
+    """Find the 'Battle' button on the clan battle popup.
+
+    After clicking a clan mode icon, a popup appears with a Battle button.
+    This function finds that button.
+
+    Args:
+        emulator: The emulator controller.
+
+    Returns:
+        tuple[int, int] | None: Coordinates of Battle button if found, None otherwise.
+    """
+    image = emulator.screenshot()
+    coord = find_image(image, "clan_battle_button", tolerance=0.85)
+    return coord
+
+
+def start_clan_battle(
+    emulator,
+    logger: Logger,
+    mode: str,
+    manual_start: bool = False,
+) -> Literal["restart", "good"]:
+    """Start a clan battle with the specified mode.
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+        mode: The clan battle mode (e.g., "Sudden Death Battle", "Battle", "Colosseum Duel")
+        manual_start: If True, wait for user to start the battle manually.
+
+    Returns:
+        "restart" if failed, "good" if battle started successfully.
+    """
+    logger.change_status(f"Starting clan battle: {mode}")
+
+    if manual_start:
+        logger.change_status("Manual start enabled - waiting for battle screen...")
+        # Just wait for the battle to start (user will start it manually)
+        if wait_for_battle_start(emulator, logger, timeout=300):  # 5 min timeout
+            return "good"
+        return "restart"
+
+    # Navigate to clan tab if not already there
+    if not check_if_on_clan_page(emulator):
+        if navigate_to_clan_tab(emulator, logger) == "restart":
+            return "restart"
+
+    # Find and click the clan battle mode icon
+    mode_coord = find_clan_battle_mode_icon(emulator, mode)
+    if mode_coord is None:
+        logger.log(f"Could not find clan battle mode icon: {mode}")
+        # Try scrolling to find it
+        for _ in range(3):
+            scroll_in_clan_page(emulator)
+            time.sleep(1)
+            mode_coord = find_clan_battle_mode_icon(emulator, mode)
+            if mode_coord is not None:
+                break
+
+    if mode_coord is None:
+        logger.log(f"Failed to find clan battle mode: {mode}")
+        return "restart"
+
+    # Click the mode icon
+    emulator.click(mode_coord[0], mode_coord[1])
+    logger.log(f"Clicked {mode} icon at {mode_coord}")
+    time.sleep(2)
+
+    # Find and click the Battle button in the popup
+    battle_button_coord = find_clan_battle_button(emulator)
+    if battle_button_coord is None:
+        logger.log("Could not find Battle button in popup")
+        # Click deadspace to close popup and try again
+        emulator.click(CLASH_MAIN_MENU_DEADSPACE_COORD[0], CLASH_MAIN_MENU_DEADSPACE_COORD[1])
+        return "restart"
+
+    emulator.click(battle_button_coord[0], battle_button_coord[1])
+    logger.log(f"Clicked Battle button at {battle_button_coord}")
+
+    return "good"
+
+
+def scroll_in_clan_page(emulator) -> None:
+    """Scroll down in the clan page to find different battle modes.
+
+    Args:
+        emulator: The emulator controller.
+    """
+    start_y = 400
+    end_y = 300
+    x = 200
+    emulator.swipe(x, start_y, x, end_y)
+
+
+def return_to_main_from_clan(emulator, logger: Logger) -> Literal["restart", "good"]:
+    """Navigate back to the main menu from the clan page.
+
+    Args:
+        emulator: The emulator controller.
+        logger: The logger object.
+
+    Returns:
+        "restart" if navigation failed, "good" otherwise.
+    """
+    logger.change_status(status="Returning to main menu from clan page")
+
+    # Click the main tab button (center bottom)
+    main_tab_coord = (210, 598)  # Approximate main tab location
+    emulator.click(main_tab_coord[0], main_tab_coord[1])
+    time.sleep(2)
+
+    # Wait for main menu
+    if wait_for_clash_main_menu(emulator, logger, deadspace_click=True):
+        return "good"
+
+    return "restart"
+
+
 if __name__ == "__main__":
     # from pyclashbot.emulators.memu import MemuEmulatorController
     # from pyclashbot.utils.logger import Logger
