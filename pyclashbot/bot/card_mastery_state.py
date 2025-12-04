@@ -49,7 +49,7 @@ def collect_card_mastery_rewards(emulator, logger: Logger) -> bool:
 
     if not card_mastery_rewards_exist_with_delay(emulator):
         logger.change_status("No card mastery rewards to collect.")
-        time.sleep(1)
+        time.sleep(0.5)
 
     else:
         # while card mastery icon exists:

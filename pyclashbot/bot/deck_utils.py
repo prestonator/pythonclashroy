@@ -105,7 +105,7 @@ def return_to_clash_main_from_card_page(emulator, logger: Logger) -> bool:
     """
     logger.change_status("Returning to clash main...")
     emulator.click(*CARD_PAGE_EXIT_BUTTON_COORDS)
-    time.sleep(1)
+    time.sleep(1.0)
     if not check_if_on_clash_main_menu(emulator):
         logger.change_status("Failed to return to clash main from the card page.")
         return False
