@@ -130,6 +130,9 @@ class RoboflowModel(DetectionModel):
         Returns:
             list[dict]: Standardized prediction results
         """
+        if self.inference_client is None:
+            return []
+
         # Run inference (confidence is already configured in the client)
         result = self.inference_client.infer(
             image_data,
@@ -138,7 +141,7 @@ class RoboflowModel(DetectionModel):
 
         # Convert Roboflow result format to our standard format
         predictions = []
-        if result and "predictions" in result:
+        if result and isinstance(result, dict) and "predictions" in result:
             for pred in result["predictions"]:
                 predictions.append(
                     {
@@ -176,7 +179,7 @@ class RoboflowModel(DetectionModel):
         """
         # Parse workflow ID to extract workspace and workflow name
         # Expected format: "workspace-name/workflow-id"
-        if '/' not in self.workflow_id:
+        if self.workflow_id is None or '/' not in self.workflow_id:
             error_msg = (
                 f"Invalid workflow_id format: '{self.workflow_id}'. "
                 f"Expected format: 'workspace-name/workflow-id'. "
@@ -184,6 +187,9 @@ class RoboflowModel(DetectionModel):
             )
             print(f"Error: {error_msg}")
             raise ValueError(error_msg)
+
+        if self.inference_client is None:
+            return []
 
         parts = self.workflow_id.split('/', 1)
         workspace_name = parts[0]
@@ -199,27 +205,33 @@ class RoboflowModel(DetectionModel):
 
         # Parse workflow results
         # Workflows can return complex nested results, try to extract predictions
-        predictions = []
+        predictions: list[dict[str, Any]] = []
 
         if result and isinstance(result, dict):
             # Try to find predictions in common workflow output formats
             # Format 1: Direct predictions array
-            if "predictions" in result:
-                for pred in result["predictions"]:
+            preds = result.get("predictions")
+            if preds is not None and isinstance(preds, list):
+                for pred in preds:
                     predictions.append(self._standardize_prediction(pred))
-
-            # Format 2: Nested in output
-            elif "output" in result and isinstance(result["output"], dict):
-                if "predictions" in result["output"]:
-                    for pred in result["output"]["predictions"]:
-                        predictions.append(self._standardize_prediction(pred))
-
-            # Format 3: Results array with predictions
-            elif "results" in result:
-                for res in result["results"]:
-                    if isinstance(res, dict) and "predictions" in res:
-                        for pred in res["predictions"]:
+            else:
+                # Format 2: Nested in output
+                output = result.get("output")
+                if isinstance(output, dict):
+                    output_preds = output.get("predictions")
+                    if isinstance(output_preds, list):
+                        for pred in output_preds:
                             predictions.append(self._standardize_prediction(pred))
+                else:
+                    # Format 3: Results array with predictions
+                    results_list = result.get("results")
+                    if isinstance(results_list, list):
+                        for res in results_list:
+                            if isinstance(res, dict):
+                                res_preds = res.get("predictions")
+                                if isinstance(res_preds, list):
+                                    for pred in res_preds:
+                                        predictions.append(self._standardize_prediction(pred))
 
         return predictions
 

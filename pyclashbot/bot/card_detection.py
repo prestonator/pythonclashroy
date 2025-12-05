@@ -8,8 +8,6 @@ import numpy
 from pyclashbot.bot.card_data import (
     BRIDGE_HEIGHT,
     BRIDGE_WIDTH,
-    CARD_ATTRIBUTES,
-    CARD_GROUPS,
     CARD_IMAGE_SCALE_FACTOR,
     CARD_MATCH_THRESHOLD,
     CARD_TO_GROUP,
@@ -621,13 +619,18 @@ def detect_tower_threats(emulator, detector=None):
         battlefield_region = (0, 100, 415, 500)
 
         # Use battlefield object detection if available
-        if hasattr(detector.model, 'detect_battlefield_objects'):
-            detections = detector.model.detect_battlefield_objects(screenshot, battlefield_region)
-        else:
+        model = detector.model
+        detections: list[dict] = []
+        detect_fn = getattr(model, 'detect_battlefield_objects', None)
+        if model is not None and detect_fn is not None and callable(detect_fn):
+            detect_result = detect_fn(screenshot, battlefield_region)
+            if isinstance(detect_result, list):
+                detections = detect_result
+        elif model is not None:
             # Fallback to regular prediction
             region_image = screenshot[battlefield_region[1]:battlefield_region[3],
                                      battlefield_region[0]:battlefield_region[2]]
-            detections = detector.model.predict(region_image)
+            detections = model.predict(region_image)
 
         # Analyze detections for threats
         for detection in detections:

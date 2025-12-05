@@ -6075,8 +6075,11 @@ COLORS_ARRAY = numpy.array(list(COLORS.values()))
 COLORS_KEYS = list(COLORS.keys())
 
 # Pre-compute numpy arrays for each card's corner data
+# Type is updated from list[dict] to list[ndarray] after this conversion
+card_color_data_arrays: dict[str, list] = {}
 for card_name, card_data in card_color_data.items():
-    card_color_data[card_name] = [numpy.array(list(corner.values())) for corner in card_data]
+    card_color_data_arrays[card_name] = [numpy.array(list(corner.values())) for corner in card_data]
+card_color_data = card_color_data_arrays  # type: ignore[assignment]
 
 
 

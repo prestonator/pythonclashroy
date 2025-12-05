@@ -1,11 +1,15 @@
 import subprocess
 import time
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
 
 from pyclashbot.emulators.base import BaseEmulatorController
+
+if TYPE_CHECKING:
+    pass
 
 
 class AdbBasedController(BaseEmulatorController, ABC):
@@ -19,7 +23,15 @@ class AdbBasedController(BaseEmulatorController, ABC):
     Subclasses must implement:
     - adb(command, binary_output) -> subprocess.CompletedProcess
     - _check_app_installed(package_name) -> bool
+
+    Subclasses must also set the following attributes:
+    - logger: A Logger instance for logging messages
     """
+
+    # Attributes expected to be set by subclasses
+    logger: "Any"  # type: ignore[name-defined]  # Logger instance, set by subclass
+    installation_waiting: bool = False
+    current_package_name: str = ""
 
     # === Abstract methods (must be implemented by subclasses) ===
 

@@ -6,6 +6,9 @@ computer vision techniques and ML models (like Roboflow) for improved
 detection accuracy.
 """
 
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 
 from pyclashbot.detection.image_rec import find_image
@@ -40,9 +43,9 @@ class HybridDetector:
     def detect_card(
         self,
         image: np.ndarray,
-        traditional_method: callable,
-        *args,
-        **kwargs,
+        traditional_method: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any,
     ) -> tuple[str | None, dict]:
         """Detect card using hybrid approach.
 

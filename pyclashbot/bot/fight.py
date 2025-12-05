@@ -16,7 +16,6 @@ from pyclashbot.bot.fight_data import (
     BATTLE_LOG_WIN_CHECK_LINES,
     CLASH_MAIN_DEADSPACE_COORD,
     CLOSE_BATTLE_LOG_BUTTON,
-    CLOSE_THIS_CHALLENGE_PAGE_BUTTON,
     ELIXER_WAIT_TIMEOUT,
     ELIXIR_COLOR,
     ELIXIR_COORDS,
@@ -28,7 +27,6 @@ from pyclashbot.bot.fight_data import (
     POST_BATTLE_OK_COLORS,
     POST_BATTLE_OK_PIXELS,
     QUICKMATCH_BUTTON_2V2,
-    QUICKMATCH_BUTTON_COORD,
     START_BATTLE_BUTTON,
 )
 from pyclashbot.bot.nav import (
@@ -782,8 +780,8 @@ class BattleStrategy:
                 self.logger.log("Defense successful on RIGHT lane - counter-push opportunity!")
 
         # Update last threat levels
-        self.last_threat_levels["left"] = left_threat
-        self.last_threat_levels["right"] = right_threat
+        self.last_threat_levels["left"] = int(left_threat)
+        self.last_threat_levels["right"] = int(right_threat)
 
     def update_tower_health(
         self,

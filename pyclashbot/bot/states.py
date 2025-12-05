@@ -74,7 +74,7 @@ class BattleModeState:
     """Class to track battle mode state without global variables."""
 
     def __init__(self):
-        self.mode_used_in_1v1 = None
+        self.mode_used_in_1v1: str | None = None
         self.fight_mode_cycle_index = 0
 
     def get_next_fight_mode(self, job_list):
@@ -89,6 +89,10 @@ class BattleModeState:
         self.fight_mode_cycle_index += 1
 
         return current_mode
+
+
+# Global variable for deprecated get_next_fight_mode function
+fight_mode_cycle_index = 0
 
 
 def get_next_fight_mode(job_list):
@@ -385,6 +389,9 @@ def state_tree(
         # if more than one mode is selected, just cycle through them
         if len(enabled_modes) > 1:
             selected_mode = battle_mode_state.get_next_fight_mode(job_list)
+            if selected_mode is None:
+                logger.log("No mode returned from get_next_fight_mode")
+                return state_order.next_state(state)
             logger.log(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
             battle_mode_state.mode_used_in_1v1 = selected_mode
             if select_mode(emulator, selected_mode) is False:
