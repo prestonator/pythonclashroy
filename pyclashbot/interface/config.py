@@ -114,10 +114,6 @@ BLUESTACKS_SETTINGS = [
     RadioConfig(UIField.BS_RENDERER_VK, "Vulkan", "bs_render_mode_radio"),
 ]
 
-EMULATOR_CHOICE = [
-    RadioConfig(UIField.BLUESTACKS_EMULATOR_TOGGLE, "BlueStacks 5", "emulator_type_radio", default=True),
-]
-
 # Strategy Configuration
 STRATEGY_SETTINGS = [
     ComboConfig(
@@ -149,7 +145,7 @@ STRATEGY_SETTINGS = [
 # All user configuration keys (auto-generated from configs)
 USER_CONFIG_KEYS = (
     [job.key.value for job in JOBS]
-    + [radio.key.value for radio in BLUESTACKS_SETTINGS + EMULATOR_CHOICE]
+    + [radio.key.value for radio in BLUESTACKS_SETTINGS]
     + [UIField.THEME_NAME.value, UIField.RECORD_FIGHTS_TOGGLE.value]  # Data settings
     + [
         UIField.DECK_NUMBER_SELECTION.value,

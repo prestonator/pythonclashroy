@@ -225,7 +225,7 @@ def check_if_on_clash_main_menu(emulator) -> bool:
         [155, 120, 82],
     ]
 
-    # memu colors
+    # BlueStacks colors
     colors_2 = [
         [255, 255, 255],
         [255, 255, 255],
@@ -235,19 +235,6 @@ def check_if_on_clash_main_menu(emulator) -> bool:
         [139, 105, 72],
         [155, 120, 81],
     ]
-
-    # print("{:^15} | {:^15} | {:^15}".format("Seen", "Google", "Memu"))
-    # for seen_pixel, google_play_color, memu_color in zip(pixels, colors_1, colors_2):
-    #     seen_pixel =str(seen_pixel[0])+ ' '+ str(seen_pixel[1])+ ' '+ str(seen_pixel[2])
-    #     google_play_color = (
-    #         str(google_play_color[0]) + ' ' +
-    #         str(google_play_color[1]) + ' ' +
-    #         str(google_play_color[2])
-    #     )
-    #     memu_color = str(memu_color[0]) + ' ' + str(memu_color[1]) + ' ' + str(memu_color[2])
-    #     print(
-    #         "{:^15} | {:^15} | {:^15}".format(seen_pixel, google_play_color, memu_color)
-    #     )
 
     for colors in [colors_1, colors_2]:
         if all_pixels_are_equal(
@@ -659,30 +646,7 @@ def select_mode(emulator, mode: str):
 
 
 if __name__ == "__main__":
-    # from pyclashbot.emulators.memu import MemuEmulatorController
-    # from pyclashbot.utils.logger import Logger
-    # import cv2
-    # import os
-
-    # print("Creating logger...")
-    # logger = Logger()
-
-    # print("Creating MEmu emulator controller in DEBUG mode (no restart)...")
-    # emulator = MemuEmulatorController(logger, render_mode="directx", debug_mode=True)
-
-    # # Save a screenshot for debugging
-    # print("\nSaving screenshot for debugging...")
-    # os.makedirs("debug_screenshots", exist_ok=True)
-    # screenshot = emulator.screenshot()
-    # cv2.imwrite("debug_screenshots/current_screen.png", screenshot)
-    # print(f"Screenshot saved to: debug_screenshots/current_screen.png")
-    # print(f"Screenshot size: {screenshot.shape}")
-
-    # print("\nTesting find_fight_mode_icon...")
-    # x = check_if_battle_mode_is_selected(emulator, "Classic 2v2")
-    # print(f"Result: Is Classic 2v2 selected? {x}")
-
-    # select_mode(emulator, "Classic 1v1")
+    pass
 
     # here matt if you want to test this and see debug info
     pass
