@@ -5,6 +5,7 @@ import random
 import time
 
 from pyclashbot.bot.card_mastery_state import card_mastery_state
+from pyclashbot.bot.clan_war_state import do_clan_war_fight_state
 from pyclashbot.bot.deck_cycle import select_deck_state
 from pyclashbot.bot.deck_randomization import randomize_deck_state
 from pyclashbot.bot.fight import (
@@ -67,6 +68,8 @@ def get_enabled_fight_modes(job_list) -> list[str]:
         enabled_modes.append("Classic 2v2")
     if job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False):
         enabled_modes.append("Trophy Road")
+    if job_list.get(UIField.CLAN_WAR_USER_TOGGLE, False):
+        enabled_modes.append("Clan War")
     return enabled_modes
 
 
@@ -244,6 +247,7 @@ class StateOrder:
             "start_fight",
             "1v1_fight",
             "2v2_fight",
+            "clan_war_fight",
             "end_fight",
         ]
 
@@ -309,6 +313,7 @@ def state_tree(
             not job_list.get(UIField.CLASSIC_1V1_USER_TOGGLE, False)
             and not job_list.get(UIField.CLASSIC_2V2_USER_TOGGLE, False)
             and not job_list.get(UIField.TROPHY_ROAD_USER_TOGGLE, False)
+            and not job_list.get(UIField.CLAN_WAR_USER_TOGGLE, False)
             and not job_list["upgrade_user_toggle"]
         ):
             logger.log("No fight jobs, or card jobs are even toggled, so skipping random deck state.")
@@ -394,29 +399,42 @@ def state_tree(
                 return state_order.next_state(state)
             logger.log(f"Multiple modes enabled. Selected {selected_mode} as the next battle mode")
             battle_mode_state.mode_used_in_1v1 = selected_mode
-            if select_mode(emulator, selected_mode) is False:
-                return handle_state_failure(
-                    logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
-                )
-        else:
-            # if only one mode is selected, check if it's already selected
-            selected_mode = enabled_modes[0]
-            battle_mode_state.mode_used_in_1v1 = selected_mode
-            logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
-            if not check_if_battle_mode_is_selected(emulator, selected_mode):
-                logger.log(f"{selected_mode} is not selected. Selecting it now.")
+            # Clan War mode doesn't use the standard mode selection UI
+            if selected_mode != "Clan War":
                 if select_mode(emulator, selected_mode) is False:
                     return handle_state_failure(
                         logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
                     )
             else:
-                logger.log(f"{selected_mode} is already selected.")
+                logger.log("Clan War mode selected - will wait for user to start battle")
+        else:
+            # if only one mode is selected, check if it's already selected
+            selected_mode = enabled_modes[0]
+            battle_mode_state.mode_used_in_1v1 = selected_mode
+            logger.log(f"Only one mode enabled: {selected_mode}. Checking if it's selected.")
+            # Clan War mode doesn't use the standard mode selection UI
+            if selected_mode != "Clan War":
+                if not check_if_battle_mode_is_selected(emulator, selected_mode):
+                    logger.log(f"{selected_mode} is not selected. Selecting it now.")
+                    if select_mode(emulator, selected_mode) is False:
+                        return handle_state_failure(
+                            logger, "select_battle_mode", "select_mode", f"Failed to select mode: {selected_mode}"
+                        )
+                else:
+                    logger.log(f"{selected_mode} is already selected.")
+            else:
+                logger.log("Clan War mode selected - will wait for user to start battle")
 
         return state_order.next_state(state)
 
     if state == "start_fight":
         if battle_mode_state.mode_used_in_1v1 is None:
             logger.log("No battle mode selected. Skipping this state")
+            return state_order.next_state(state)
+
+        # Clan War mode handles battle starting separately (waits for user)
+        if battle_mode_state.mode_used_in_1v1 == "Clan War":
+            logger.log("Clan War mode - skipping normal start_fight (handled in clan_war_fight state)")
             return state_order.next_state(state)
 
         # Start fight using the selected mode directly
@@ -489,6 +507,38 @@ def state_tree(
             is False
         ):
             return handle_state_failure(logger, "2v2_fight", "do_2v2_fight_state", "2v2 fight failed")
+
+        return state_order.next_state(state)
+
+    if state == "clan_war_fight":
+        # Check if the current mode is Clan War
+        if battle_mode_state.mode_used_in_1v1 != "Clan War":
+            logger.log(f"Current mode '{battle_mode_state.mode_used_in_1v1}' is not Clan War. Skipping this state")
+            return state_order.next_state(state)
+
+        random_plays_flag = job_list.get(UIField.RANDOM_PLAYS_USER_TOGGLE, False)
+        recording_flag = job_list.get(UIField.RECORD_FIGHTS_TOGGLE, False)
+
+        # Get strategy configuration
+        strategy_config = {
+            "elixir_mode": job_list.get(UIField.STRATEGY_ELIXIR_MODE, "Adaptive"),
+            "push_mode": job_list.get(UIField.STRATEGY_PUSH_MODE, "Adaptive"),
+            "aggression_level": job_list.get(UIField.STRATEGY_AGGRESSION_LEVEL, "Moderate"),
+        }
+
+        # Clan war battles wait for the user to start the battle manually
+        # The bot will detect when a battle starts and play it
+        if (
+            do_clan_war_fight_state(
+                emulator,
+                logger,
+                random_plays_flag,
+                recording_flag,
+                strategy_config,
+            )
+            is False
+        ):
+            return handle_state_failure(logger, "clan_war_fight", "do_clan_war_fight_state", "Clan war fight failed")
 
         return state_order.next_state(state)
 
