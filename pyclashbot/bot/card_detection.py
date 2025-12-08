@@ -345,6 +345,8 @@ def get_play_coords_for_card(
 ):
     """Get play coordinates for a specific card.
 
+    Uses intelligent spell targeting for spell cards, and standard placement for other cards.
+
     Args:
         emulator: Emulator instance
         logger: Logger instance
@@ -365,7 +367,31 @@ def get_play_coords_for_card(
     # get the grouping of this card (hog, turret, spell, etc)
     group = get_card_group(identity)
 
-    # get the play coords of this grouping
+    # Check if this is a spell card - use smart spell targeting
+    from pyclashbot.bot.spell_targeting import is_spell_card, get_smart_spell_coords  # noqa: PLC0415
+
+    if is_spell_card(identity):
+        # Get threat levels for spell targeting decisions
+        left_threat, right_threat = detect_threat_level()
+
+        # Get current screenshot for tower health detection
+        screenshot = battle_iar  # Use the cached screenshot from card availability check
+
+        # Use smart spell targeting
+        coords = get_smart_spell_coords(
+            card_id=identity,
+            screenshot=screenshot,
+            left_threat=left_threat,
+            right_threat=right_threat,
+            preferred_lane=play_side,
+            elapsed_time=elapsed_time,
+            detections=None,  # ML detections could be passed here if available
+            logger=logger,
+        )
+        logger.log(f"Smart spell targeting for {identity}: {coords}")
+        return identity, coords
+
+    # For non-spell cards, use standard placement logic
     coords = calculate_play_coords(group, play_side, elapsed_time, placement_mode)
 
     return identity, coords

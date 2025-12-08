@@ -6187,6 +6187,375 @@ OFFENSIVE_RIGHT_X_MIN = 240  # Left boundary of right lane offensive zone
 OFFENSIVE_RIGHT_X_MAX = 360  # Right boundary of right lane offensive zone
 
 
+# =============================================================================
+# SPELL PROPERTIES - Detailed metadata for intelligent spell targeting
+# =============================================================================
+# Each spell has:
+#   - elixir: Cost in elixir
+#   - damage: Approximate tournament-standard damage to crown towers
+#   - radius: Splash radius in tiles (0 for single-target or line spells)
+#   - targets: What the spell can hit ("all", "ground", "air", "buildings")
+#   - use_cases: List of strategic uses for the spell
+#   - priority_targets: What this spell is best used against
+#   - min_value_elixir: Minimum elixir value of targets to justify using
+#   - can_finish_tower: Whether this spell can be used to finish low-HP towers
+
+SPELL_PROPERTIES: dict[str, dict] = {
+    # Heavy damage spells - primarily for tower finishing or high-value targets
+    "rocket": {
+        "elixir": 6,
+        "damage": 493,  # Crown tower damage
+        "radius": 2.0,
+        "targets": "all",
+        "use_cases": ["tower_finish", "high_value_target", "elixir_collector"],
+        "priority_targets": ["sparky", "elixir_collector", "xbow", "mortar", "tower"],
+        "min_value_elixir": 5,
+        "can_finish_tower": True,
+        "is_spell": True,
+    },
+    "lightning": {
+        "elixir": 6,
+        "damage": 301,  # Crown tower damage (hits 3 targets)
+        "radius": 3.5,  # Search radius for 3 highest HP targets
+        "targets": "all",
+        "use_cases": ["high_value_target", "support_removal", "inferno_reset"],
+        "priority_targets": ["sparky", "inferno_tower", "inferno_dragon", "witch", "wizard"],
+        "min_value_elixir": 5,
+        "can_finish_tower": True,
+        "is_spell": True,
+    },
+
+    # Medium damage spells - versatile damage dealers
+    "fireball": {
+        "elixir": 4,
+        "damage": 173,  # Crown tower damage
+        "radius": 2.5,
+        "targets": "all",
+        "use_cases": ["cluster_damage", "tower_finish", "medium_troops"],
+        "priority_targets": ["wizard", "witch", "musketeer", "three_musketeers", "minion_horde"],
+        "min_value_elixir": 4,
+        "can_finish_tower": True,
+        "is_spell": True,
+    },
+    "poison": {
+        "elixir": 4,
+        "damage": 220,  # Total crown tower damage over duration
+        "radius": 3.5,
+        "targets": "all",
+        "use_cases": ["area_denial", "graveyard_support", "swarm_control"],
+        "priority_targets": ["skeleton_army", "graveyard", "elixir_collector", "tower_with_swarm"],
+        "min_value_elixir": 3,
+        "can_finish_tower": True,
+        "is_spell": True,
+    },
+
+    # Anti-swarm spells - efficient against multiple small units
+    "arrows": {
+        "elixir": 3,
+        "damage": 85,  # Crown tower damage
+        "radius": 4.0,
+        "targets": "all",
+        "use_cases": ["anti_swarm", "minion_counter", "princess_kill"],
+        "priority_targets": ["minion_horde", "minions", "skeleton_army", "goblin_barrel", "princess"],
+        "min_value_elixir": 3,
+        "can_finish_tower": False,
+        "is_spell": True,
+    },
+    "zap": {
+        "elixir": 2,
+        "damage": 75,  # Crown tower damage
+        "radius": 2.5,
+        "targets": "all",
+        "use_cases": ["swarm_clear", "inferno_reset", "sparky_reset", "retarget"],
+        "priority_targets": ["skeleton_army", "goblin_barrel", "inferno_tower", "inferno_dragon", "sparky"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "resets_charge": True,  # Special property: resets inferno/sparky
+    },
+    "snowball": {
+        "elixir": 2,
+        "damage": 75,  # Crown tower damage
+        "radius": 2.5,
+        "targets": "all",
+        "use_cases": ["swarm_clear", "knockback", "balloon_counter"],
+        "priority_targets": ["minion_horde", "balloon", "skeleton_army", "goblin_barrel"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "has_knockback": True,
+    },
+    "log": {
+        "elixir": 2,
+        "damage": 96,  # Crown tower damage
+        "radius": 0,  # Line spell, not radius
+        "targets": "ground",
+        "use_cases": ["ground_swarm", "goblin_barrel_counter", "princess_kill", "knockback"],
+        "priority_targets": ["goblin_barrel", "princess", "skeleton_army", "goblin_gang"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "is_line_spell": True,
+        "has_knockback": True,
+    },
+    "barb_barrel": {
+        "elixir": 2,
+        "damage": 96,  # Crown tower damage (impact only)
+        "radius": 0,  # Line spell
+        "targets": "ground",
+        "use_cases": ["ground_swarm", "distraction", "chip_damage"],
+        "priority_targets": ["skeleton_army", "goblin_gang", "princess"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "is_line_spell": True,
+        "spawns_troop": True,
+    },
+
+    # Control spells - utility and crowd control
+    "freeze": {
+        "elixir": 4,
+        "damage": 69,  # Crown tower damage
+        "radius": 3.0,
+        "targets": "all",
+        "use_cases": ["push_support", "defensive_freeze", "tower_freeze"],
+        "priority_targets": ["defending_troops", "tower_with_push", "inferno_tower"],
+        "min_value_elixir": 4,  # Should freeze high-value targets
+        "can_finish_tower": False,
+        "is_spell": True,
+        "freezes_targets": True,
+    },
+    "tornado": {
+        "elixir": 3,
+        "damage": 35,  # Crown tower damage (per tick)
+        "radius": 5.5,  # Pull radius
+        "targets": "all",
+        "use_cases": ["king_activation", "grouping_troops", "hog_counter", "balloon_pull"],
+        "priority_targets": ["hog", "balloon", "giant", "golem"],
+        "min_value_elixir": 0,  # Value is in utility, not damage
+        "can_finish_tower": False,
+        "is_spell": True,
+        "pulls_troops": True,
+    },
+    "earthquake": {
+        "elixir": 3,
+        "damage": 61,  # Crown tower damage per tick (x3 ticks)
+        "radius": 3.5,
+        "targets": "ground",  # Primarily buildings, reduced troop damage
+        "use_cases": ["building_destruction", "slowing_troops"],
+        "priority_targets": ["xbow", "mortar", "inferno_tower", "elixir_collector", "tesla"],
+        "min_value_elixir": 3,
+        "can_finish_tower": True,
+        "is_spell": True,
+        "bonus_building_damage": True,
+    },
+
+    # Special spells - unique mechanics
+    "graveyard": {
+        "elixir": 5,
+        "damage": 0,  # Spawns skeletons, doesn't do direct damage
+        "radius": 4.0,
+        "targets": "ground",  # Skeletons are ground
+        "use_cases": ["tower_pressure", "tank_support"],
+        "priority_targets": ["tower"],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "spawns_troop": True,
+    },
+    "goblin_barrel": {
+        "elixir": 3,
+        "damage": 0,  # Spawns goblins
+        "radius": 1.5,
+        "targets": "ground",
+        "use_cases": ["tower_chip", "distraction"],
+        "priority_targets": ["tower"],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "spawns_troop": True,
+    },
+    "evo_goblin_barrel": {
+        "elixir": 3,
+        "damage": 0,
+        "radius": 1.5,
+        "targets": "ground",
+        "use_cases": ["tower_chip", "distraction"],
+        "priority_targets": ["tower"],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "spawns_troop": True,
+    },
+    "rage": {
+        "elixir": 2,
+        "damage": 0,
+        "radius": 5.0,
+        "targets": "all",
+        "use_cases": ["push_support", "offensive_boost"],
+        "priority_targets": ["friendly_troops"],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "buffs_troops": True,
+    },
+    "heal_spirit": {
+        "elixir": 1,
+        "damage": 0,
+        "radius": 0,
+        "targets": "all",
+        "use_cases": ["healing", "cycle"],
+        "priority_targets": ["friendly_troops"],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,  # Technically a troop but acts like a spell
+    },
+    "mirror": {
+        "elixir": 0,  # Variable based on last card
+        "damage": 0,
+        "radius": 0,
+        "targets": "all",
+        "use_cases": ["duplicate_card"],
+        "priority_targets": [],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "is_special": True,
+    },
+    "clone": {
+        "elixir": 3,
+        "damage": 0,
+        "radius": 3.0,
+        "targets": "all",
+        "use_cases": ["push_support", "lava_hound_support"],
+        "priority_targets": ["friendly_troops"],
+        "min_value_elixir": 0,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "is_special": True,
+    },
+    "royal_delivery": {
+        "elixir": 3,
+        "damage": 130,  # Impact damage
+        "radius": 3.0,
+        "targets": "all",
+        "use_cases": ["defensive_spell", "swarm_clear"],
+        "priority_targets": ["skeleton_army", "minion_horde", "goblin_gang"],
+        "min_value_elixir": 3,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "spawns_troop": True,
+        "has_delay": True,
+    },
+    # Zap variants
+    "gob_curse": {
+        "elixir": 2,
+        "damage": 75,
+        "radius": 2.5,
+        "targets": "all",
+        "use_cases": ["swarm_clear", "reset"],
+        "priority_targets": ["skeleton_army", "goblin_barrel"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "resets_charge": True,
+    },
+    "void": {
+        "elixir": 2,
+        "damage": 75,
+        "radius": 2.5,
+        "targets": "all",
+        "use_cases": ["swarm_clear", "reset"],
+        "priority_targets": ["skeleton_army", "goblin_barrel"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "resets_charge": True,
+    },
+    "execution": {
+        "elixir": 2,
+        "damage": 75,
+        "radius": 2.5,
+        "targets": "all",
+        "use_cases": ["swarm_clear", "reset"],
+        "priority_targets": ["skeleton_army", "goblin_barrel"],
+        "min_value_elixir": 2,
+        "can_finish_tower": False,
+        "is_spell": True,
+        "resets_charge": True,
+    },
+}
+
+# All spell card names for quick lookup
+ALL_SPELL_CARDS: set[str] = set(SPELL_PROPERTIES.keys())
+
+# Spells that can target enemy troops effectively
+TROOP_TARGETING_SPELLS: set[str] = {
+    "arrows", "fireball", "poison", "zap", "snowball", "freeze",
+    "lightning", "rocket", "tornado", "royal_delivery", "earthquake",
+    "log", "barb_barrel", "gob_curse", "void", "execution",
+}
+
+# Spells that can finish towers
+TOWER_FINISHING_SPELLS: set[str] = {
+    spell for spell, props in SPELL_PROPERTIES.items()
+    if props.get("can_finish_tower", False)
+}
+
+# Small/cheap spells for swarm clearing
+ANTI_SWARM_SPELLS: set[str] = {
+    "arrows", "zap", "snowball", "log", "barb_barrel",
+    "gob_curse", "void", "execution",
+}
+
+# Heavy damage spells
+HEAVY_SPELLS: set[str] = {"rocket", "lightning", "fireball", "poison"}
+
+# Spells that reset charge-based attacks (inferno, sparky)
+RESET_SPELLS: set[str] = {
+    spell for spell, props in SPELL_PROPERTIES.items()
+    if props.get("resets_charge", False)
+}
+
+
+# =============================================================================
+# BATTLEFIELD COORDINATES - For dynamic spell targeting
+# =============================================================================
+
+# Enemy tower positions (screen coordinates)
+ENEMY_LEFT_TOWER_POS = (116, 160)
+ENEMY_RIGHT_TOWER_POS = (302, 160)
+ENEMY_KING_TOWER_POS = (207, 100)
+
+# Our tower positions
+OUR_LEFT_TOWER_POS = (116, 460)
+OUR_RIGHT_TOWER_POS = (302, 460)
+OUR_KING_TOWER_POS = (207, 530)
+
+# Battlefield zones for spell targeting
+# Enemy territory (where we want to target troops near their tower)
+ENEMY_TERRITORY_Y_MIN = 100
+ENEMY_TERRITORY_Y_MAX = 280
+
+# Bridge area (high-value spell target zone)
+BRIDGE_ZONE_Y_MIN = 250
+BRIDGE_ZONE_Y_MAX = 320
+
+# Our territory (defensive spell zone)
+OUR_TERRITORY_Y_MIN = 350
+OUR_TERRITORY_Y_MAX = 550
+
+# Lane boundaries
+LEFT_LANE_X_MIN = 50
+LEFT_LANE_X_MAX = 180
+RIGHT_LANE_X_MIN = 235
+RIGHT_LANE_X_MAX = 365
+
+# Center zone (king tower area)
+CENTER_X_MIN = 180
+CENTER_X_MAX = 235
+
+
 
 
 
