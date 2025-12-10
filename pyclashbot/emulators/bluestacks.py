@@ -400,10 +400,10 @@ class BlueStacksEmulatorController(AdbBasedController):
 
         desired = {
             f"bst.instance.{internal}.cpus": "2",
-            f"bst.instance.{internal}.ram": "2048",
+            f"bst.instance.{internal}.ram": "4096",
             f"bst.instance.{internal}.fb_width": str(self.expected_dims[0]),
             f"bst.instance.{internal}.fb_height": str(self.expected_dims[1]),
-            f"bst.instance.{internal}.dpi": "160",
+            f"bst.instance.{internal}.dpi": "240",
             f"bst.instance.{internal}.max_fps": "40",
             f"bst.instance.{internal}.custom_resolution_selected": "1",
         }
