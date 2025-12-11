@@ -15,6 +15,7 @@ class StatField(StrEnum):
     CARD_MASTERY_REWARD_COLLECTIONS = "card_mastery_reward_collections"
     UPGRADES = "upgrades"
     WAR_CHEST_COLLECTS = "war_chest_collects"
+    DECK_STATS = "deck_stats"
 
 
 class DerivedStatField(StrEnum):

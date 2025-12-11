@@ -284,12 +284,17 @@ def end_fight_state(
 
         if win_check_return:
             logger.add_win()
+            # Track deck-specific win if deck tracking is active
+            logger.increment_deck_win()
 
             if recording_flag:
                 save_win_loss("win")
             return True
 
         logger.add_loss()
+        # Track deck-specific loss if deck tracking is active
+        logger.increment_deck_loss()
+
         if recording_flag:
             save_win_loss("loss")
     else:

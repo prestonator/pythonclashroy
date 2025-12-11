@@ -319,6 +319,9 @@ def state_tree(
         if randomize_deck_state(emulator, logger, deck_number) is False:
             return handle_state_failure(logger, "randomize_deck", "randomize_deck_state")
 
+        # Track the deck number for win/loss statistics
+        logger.set_current_deck(deck_number, mode="random")
+
         return state_order.next_state(state)
 
     if state == "cycle_deck":
@@ -334,12 +337,22 @@ def state_tree(
 
         deck_count = job_list.get(UIField.MAX_DECK_SELECTION.value, 10)
 
+        # Set up deck cycle range for tracking (only on first cycle)
+        if logger.deck_cycle_start_deck is None:
+            logger.set_deck_cycle_range(deck_cycle_index, deck_count)
+
         success, selected_deck_number = select_deck_state(emulator, logger, deck_cycle_index, deck_count)
 
         if not success or selected_deck_number is None:
             return handle_state_failure(logger, "cycle_deck", "select_deck_state")
 
+        # Track the current deck for win/loss statistics
+        logger.set_current_deck(selected_deck_number, mode="cycle")
+
         next_deck = selected_deck_number + 1 if selected_deck_number < deck_count else 1
+
+        # Check if we've completed a full cycle (about to loop back to start)
+        logger.check_and_print_cycle_complete(next_deck)
 
         set_deck_number_for_battle_mode(battle_mode_state.mode_used_in_1v1, next_deck)
 

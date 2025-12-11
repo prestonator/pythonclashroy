@@ -1,5 +1,6 @@
 """import logging for file logging"""
 
+import json
 import logging
 import pprint
 import random
@@ -19,6 +20,7 @@ LOGS_TO_KEEP = 10
 log_dir = join(expandvars("%appdata%"), MODULE_NAME, "logs")
 log_name = join(log_dir, time.strftime("%Y-%m-%d_%H-%M", time.localtime()) + ".txt")
 archive_name: str = join(log_dir, "logs.zip")
+deck_stats_file: str = join(expandvars("%appdata%"), MODULE_NAME, "deck_stats.json")
 
 
 def compress_logs() -> None:
@@ -152,6 +154,15 @@ class Logger:
         # track errored logger
         self.errored = False
 
+        # deck statistics tracking (per-deck win/loss)
+        # Structure: {deck_number: {"wins": int, "losses": int}}
+        self.deck_stats: dict[int, dict[str, int]] = {}
+        self.current_deck_number: int | None = None
+        self.deck_cycle_mode: str | None = None  # "cycle" or "random"
+        self.deck_cycle_start_deck: int | None = None  # Starting deck for cycle detection
+        self.deck_cycle_max_deck: int | None = None  # Max deck number for cycle detection
+        self._load_deck_stats()
+
         # action system for UI callbacks
         self.action_needed = False
         self.action_callback = None
@@ -188,6 +199,8 @@ class Logger:
                 # bot stats
                 "restarts_after_failure": self.restarts_after_failure,
                 "current_status": self.current_status,
+                # deck stats
+                "deck_stats": self.deck_stats,
             }
 
     def get_stats(self):
@@ -416,6 +429,218 @@ class Logger:
     def add_deck_cycled(self):
         """Increment card_cycles counter"""
         self.card_cycles += 1
+
+    # --- Deck Statistics Methods ---
+
+    def _load_deck_stats(self) -> None:
+        """Load deck statistics from persistent storage."""
+        try:
+            if exists(deck_stats_file):
+                with open(deck_stats_file, encoding="utf-8") as f:
+                    data = json.load(f)
+                    # Convert string keys back to int (JSON stores keys as strings)
+                    self.deck_stats = {int(k): v for k, v in data.items()}
+                    self.log(f"Loaded deck stats from disk: {len(self.deck_stats)} decks tracked")
+        except (json.JSONDecodeError, OSError) as e:
+            logging.warning(f"Could not load deck stats: {e}")
+            self.deck_stats = {}
+
+    def _save_deck_stats(self) -> None:
+        """Save deck statistics to persistent storage."""
+        try:
+            with open(deck_stats_file, "w", encoding="utf-8") as f:
+                json.dump(self.deck_stats, f, indent=2)
+        except OSError as e:
+            logging.warning(f"Could not save deck stats: {e}")
+
+    def set_current_deck(self, deck_number: int, mode: str = "cycle") -> None:
+        """Set the current deck being used for tracking.
+
+        Args:
+            deck_number: The deck number (1-10)
+            mode: Either "cycle" or "random"
+        """
+        self.current_deck_number = deck_number
+        self.deck_cycle_mode = mode
+        # Initialize deck stats if not exists
+        if deck_number not in self.deck_stats:
+            self.deck_stats[deck_number] = {"wins": 0, "losses": 0}
+        self.log(f"Current deck set to #{deck_number} (mode: {mode})")
+
+    def set_deck_cycle_range(self, start_deck: int, max_deck: int) -> None:
+        """Set the deck cycling range for cycle completion detection.
+
+        Args:
+            start_deck: The deck number where cycling started
+            max_deck: The maximum deck number in the cycle
+        """
+        self.deck_cycle_start_deck = start_deck
+        self.deck_cycle_max_deck = max_deck
+
+    def increment_deck_win(self, deck_number: int | None = None) -> None:
+        """Increment win count for a specific deck.
+
+        Args:
+            deck_number: The deck number. If None, uses current_deck_number.
+        """
+        deck = deck_number if deck_number is not None else self.current_deck_number
+        if deck is None:
+            return
+        if deck not in self.deck_stats:
+            self.deck_stats[deck] = {"wins": 0, "losses": 0}
+        self.deck_stats[deck]["wins"] += 1
+        self._save_deck_stats()
+        self.log(f"Deck #{deck}: +1 win (total: {self.deck_stats[deck]['wins']}W/{self.deck_stats[deck]['losses']}L)")
+
+    def increment_deck_loss(self, deck_number: int | None = None) -> None:
+        """Increment loss count for a specific deck.
+
+        Args:
+            deck_number: The deck number. If None, uses current_deck_number.
+        """
+        deck = deck_number if deck_number is not None else self.current_deck_number
+        if deck is None:
+            return
+        if deck not in self.deck_stats:
+            self.deck_stats[deck] = {"wins": 0, "losses": 0}
+        self.deck_stats[deck]["losses"] += 1
+        self._save_deck_stats()
+        self.log(f"Deck #{deck}: +1 loss (total: {self.deck_stats[deck]['wins']}W/{self.deck_stats[deck]['losses']}L)")
+
+    def get_deck_winrate(self, deck_number: int) -> str:
+        """Calculate win rate for a specific deck.
+
+        Args:
+            deck_number: The deck number to check.
+
+        Returns:
+            Win rate as a percentage string.
+        """
+        if deck_number not in self.deck_stats:
+            return "N/A"
+        stats = self.deck_stats[deck_number]
+        wins = stats["wins"]
+        losses = stats["losses"]
+        total = wins + losses
+        if total == 0:
+            return "0%"
+        return f"{round(100 * wins / total)}%"
+
+    def print_deck_cycle_summary(self) -> None:
+        """Print summary of deck cycling statistics after a full cycle."""
+        if not self.deck_stats:
+            self.log("No deck statistics to display.")
+            return
+
+        self.log("")
+        self.log("═" * 50)
+        self.log("       DECK CYCLE COMPLETE - STATISTICS SUMMARY")
+        self.log("═" * 50)
+
+        # Get decks in the cycle range
+        if self.deck_cycle_max_deck:
+            decks_to_show = range(1, self.deck_cycle_max_deck + 1)
+        else:
+            decks_to_show = sorted(self.deck_stats.keys())
+
+        total_wins = 0
+        total_losses = 0
+
+        for deck_num in decks_to_show:
+            if deck_num in self.deck_stats:
+                stats = self.deck_stats[deck_num]
+                wins = stats["wins"]
+                losses = stats["losses"]
+                total_wins += wins
+                total_losses += losses
+                winrate = self.get_deck_winrate(deck_num)
+                self.log(f"  Deck #{deck_num:2d}:  {wins:3d}W / {losses:3d}L  ({winrate})")
+
+        self.log("─" * 50)
+        overall_total = total_wins + total_losses
+        overall_rate = f"{round(100 * total_wins / overall_total)}%" if overall_total > 0 else "0%"
+        self.log(f"  TOTAL:    {total_wins:3d}W / {total_losses:3d}L  ({overall_rate})")
+        self.log("═" * 50)
+        self.log("")
+
+    def print_random_deck_summary(self) -> None:
+        """Print summary of random deck statistics showing top 3 performing decks."""
+        if not self.deck_stats:
+            self.log("No deck statistics to display.")
+            return
+
+        self.log("")
+        self.log("═" * 50)
+        self.log("       RANDOM DECK MODE - TOP PERFORMERS")
+        self.log("═" * 50)
+
+        # Calculate performance score for each deck (wins - losses, with winrate tiebreaker)
+        deck_performance = []
+        for deck_num, stats in self.deck_stats.items():
+            wins = stats["wins"]
+            losses = stats["losses"]
+            total = wins + losses
+            if total > 0:
+                winrate = wins / total
+                # Score: prioritize win difference, then winrate
+                score = (wins - losses) + (winrate * 0.1)
+                deck_performance.append((deck_num, wins, losses, winrate, score))
+
+        if not deck_performance:
+            self.log("  No battles recorded yet.")
+            self.log("═" * 50)
+            return
+
+        # Sort by score descending
+        deck_performance.sort(key=lambda x: x[4], reverse=True)
+
+        # Show top 3
+        self.log("  TOP 3 PERFORMING DECKS:")
+        self.log("─" * 50)
+        for i, (deck_num, wins, losses, winrate, _) in enumerate(deck_performance[:3], 1):
+            medal = ["🥇", "🥈", "🥉"][i - 1] if i <= 3 else "  "
+            winrate_str = f"{round(winrate * 100)}%"
+            self.log(f"  {medal} #{i} Deck #{deck_num:2d}:  {wins:3d}W / {losses:3d}L  ({winrate_str})")
+
+        # Show all decks summary
+        self.log("")
+        self.log("  ALL DECKS PLAYED:")
+        self.log("─" * 50)
+        total_wins = 0
+        total_losses = 0
+        for deck_num, stats in sorted(self.deck_stats.items()):
+            wins = stats["wins"]
+            losses = stats["losses"]
+            total_wins += wins
+            total_losses += losses
+            winrate = self.get_deck_winrate(deck_num)
+            self.log(f"  Deck #{deck_num:2d}:  {wins:3d}W / {losses:3d}L  ({winrate})")
+
+        self.log("─" * 50)
+        overall_total = total_wins + total_losses
+        overall_rate = f"{round(100 * total_wins / overall_total)}%" if overall_total > 0 else "0%"
+        self.log(f"  TOTAL:    {total_wins:3d}W / {total_losses:3d}L  ({overall_rate})")
+        self.log("═" * 50)
+        self.log("")
+
+    def check_and_print_cycle_complete(self, next_deck: int) -> None:
+        """Check if a full deck cycle is complete and print summary if so.
+
+        A cycle is complete when we've cycled through all decks and are
+        about to start over at the beginning.
+
+        Args:
+            next_deck: The next deck number that will be used.
+        """
+        if self.deck_cycle_mode != "cycle":
+            return
+        if self.deck_cycle_start_deck is None or self.deck_cycle_max_deck is None:
+            return
+
+        # Cycle is complete when next_deck equals start_deck
+        # This means we've gone through all decks and are starting over
+        if next_deck == self.deck_cycle_start_deck:
+            self.print_deck_cycle_summary()
 
     @_updates_gui
     def increment_2v2_fights(self) -> None:
