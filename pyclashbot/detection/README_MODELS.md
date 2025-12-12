@@ -5,6 +5,7 @@ This directory contains the model integration framework for enhancing the Clash 
 ## Overview
 
 The bot now supports optional integration with computer vision models from services like Roboflow. This allows for:
+
 - **Improved card detection accuracy** using trained ML models
 - **Better object recognition** in various game states
 - **Flexible strategy enhancements** based on model predictions
@@ -219,6 +220,7 @@ Warning: Roboflow inference not installed.
 ```
 
 **Solution**: Install the inference SDK:
+
 ```bash
 pip install inference-sdk
 ```
@@ -230,12 +232,14 @@ Warning: Failed to initialize Roboflow client
 ```
 
 **Solution**: Set your API key either:
+
 - In the configuration: `api_key="YOUR_KEY"`
 - As an environment variable: `export ROBOFLOW_API_KEY="YOUR_KEY"`
 
 ### Low detection confidence
 
 **Solution**: Adjust the confidence thresholds:
+
 ```python
 config = {
     "confidence_threshold": 0.6,  # Lower threshold
@@ -247,7 +251,8 @@ config = {
 
 ### Model predictions incorrect
 
-**Solution**: 
+**Solution**:
+
 1. Train or fine-tune your Roboflow model with more data
 2. Adjust the fallback behavior to rely more on traditional CV
 3. Use a different model version or provider
@@ -268,6 +273,7 @@ ROBOFLOW_TO_INTERNAL_NAME = {
 ### Windows-specific issues
 
 **SSL Certificate Errors**: If you encounter SSL errors on Windows:
+
 ```bash
 pip install --upgrade certifi
 ```
@@ -275,6 +281,7 @@ pip install --upgrade certifi
 **Firewall blocking API calls**: The Roboflow inference SDK requires internet access to `detect.roboflow.com`. Ensure your firewall allows outbound HTTPS connections.
 
 **Path issues with reference images**: Use forward slashes or raw strings for paths:
+
 ```python
 # Good
 folder = "pyclashbot/detection/reference_images/cards"
@@ -289,12 +296,14 @@ folder = "pyclashbot\\detection\\reference_images\\cards"
 If your Roboflow workflow returns predictions but the bot doesn't detect them, check:
 
 1. **Response format**: Enable debug logging to see the workflow response structure:
+
    ```python
    import logging
    logging.getLogger("pyclashbot.detection.roboflow_model").setLevel(logging.DEBUG)
    ```
 
 2. **Custom workflow outputs**: The bot looks for predictions in these locations:
+
    - `result["predictions"]`
    - `result["output"]["predictions"]`
    - `result["results"][*]["predictions"]`
@@ -308,6 +317,7 @@ ValueError: Confidence must be between 0.0 and 1.0
 ```
 
 **Solution**: Ensure all confidence values are decimals between 0 and 1:
+
 ```python
 # Correct
 confidence=0.5  # 50% confidence
@@ -343,7 +353,7 @@ class YoloModel(DetectionModel):
     def predict(self, image, **kwargs):
         # Your YOLO implementation
         pass
-    
+
     def is_available(self):
         # Check if YOLO is available
         pass
