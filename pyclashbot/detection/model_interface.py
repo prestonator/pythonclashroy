@@ -41,6 +41,24 @@ class DetectionModel(ABC):
             bool: True if model is available, False otherwise
         """
 
+    def detect_battlefield_objects(
+        self, image: Any, region: tuple[int, int, int, int] | None = None
+    ) -> list[dict[str, Any]]:
+        """Detect objects on the battlefield (towers, troops, etc.).
+
+        This method provides battlefield-specific detection for strategic analysis.
+        Default implementation delegates to predict() - subclasses may override
+        for optimized battlefield detection.
+
+        Args:
+            image: Full battlefield screenshot as numpy array
+            region: Optional (x1, y1, x2, y2) region to analyze, None for full image
+
+        Returns:
+            list[dict]: List of detected objects with their positions and classifications
+        """
+        return self.predict(image)
+
 
 class DummyModel(DetectionModel):
     """Dummy model that always returns empty results.
@@ -55,6 +73,12 @@ class DummyModel(DetectionModel):
     def is_available(self) -> bool:
         """Dummy model is always unavailable."""
         return False
+
+    def detect_battlefield_objects(
+        self, image: Any, region: tuple[int, int, int, int] | None = None
+    ) -> list[dict[str, Any]]:
+        """Return empty battlefield detections."""
+        return []
 
 
 class ModelFactory:

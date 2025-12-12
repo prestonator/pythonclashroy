@@ -28,39 +28,28 @@ import numpy as np
 from pyclashbot.bot.card_data import (
     ALL_SPELL_CARDS,
     ANTI_SWARM_SPELLS,
+    BRIDGE_ZONE_Y_MAX,
+    BRIDGE_ZONE_Y_MIN,
+    ENEMY_KING_TOWER_POS,
+    ENEMY_LEFT_TOWER_POS,
+    ENEMY_RIGHT_TOWER_POS,
+    ENEMY_TERRITORY_Y_MAX,
+    ENEMY_TERRITORY_Y_MIN,
     HEAVY_SPELLS,
+    LEFT_LANE_X_MAX,
+    LEFT_LANE_X_MIN,
+    OUR_TERRITORY_Y_MAX,
+    OUR_TERRITORY_Y_MIN,
     PLAY_COORDS,
     RESET_SPELLS,
+    RIGHT_LANE_X_MAX,
+    RIGHT_LANE_X_MIN,
     SPELL_PROPERTIES,
     TOWER_FINISHING_SPELLS,
 )
 
 if TYPE_CHECKING:
     from pyclashbot.utils.logger import Logger
-
-
-# =============================================================================
-# CONSTANTS - Imported from card_data or defined locally
-# =============================================================================
-
-# Battlefield zones for spell targeting
-ENEMY_TERRITORY_Y_MIN = 100
-ENEMY_TERRITORY_Y_MAX = 280
-BRIDGE_ZONE_Y_MIN = 250
-BRIDGE_ZONE_Y_MAX = 320
-OUR_TERRITORY_Y_MIN = 350
-OUR_TERRITORY_Y_MAX = 550
-
-# Lane boundaries
-LEFT_LANE_X_MIN = 50
-LEFT_LANE_X_MAX = 180
-RIGHT_LANE_X_MIN = 235
-RIGHT_LANE_X_MAX = 365
-
-# Enemy tower positions
-ENEMY_LEFT_TOWER_POS = (116, 160)
-ENEMY_RIGHT_TOWER_POS = (302, 160)
-ENEMY_KING_TOWER_POS = (207, 100)
 
 
 class SpellUseCase(Enum):

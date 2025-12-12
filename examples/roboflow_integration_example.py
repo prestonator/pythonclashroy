@@ -75,6 +75,8 @@ def example_card_detection_integration():
     """Example 3: Integrating with existing card detection."""
     print("\n=== Example 3: Integration with card detection ===")
 
+    from pyclashbot.detection.hybrid_detector import HybridDetector, create_detector_from_config
+
     # This shows how you would integrate the hybrid detector
     # with the existing card detection code
 
@@ -82,30 +84,35 @@ def example_card_detection_integration():
     print("1. Create a hybrid detector (with or without model)")
     print("2. Use it in the card detection flow")
     print()
-    print("Pseudocode:")
-    print("""
-    from pyclashbot.detection.hybrid_detector import create_detector_from_config
-    from pyclashbot.bot.card_detection import identify_hand_cards
 
-    # Setup detector (once at bot startup)
-    config = {...}  # Your configuration
-    detector = create_detector_from_config(config)
+    # Create a simple detector for demonstration
+    detector = HybridDetector()
+    print(f"✓ Created detector: model={detector.model}, threshold={detector.model_confidence_threshold}")
 
-    # In card detection loop:
-    for card_index in available_cards:
-        # Get screenshot region for this card
-        image = emulator.screenshot()
+    # Demonstrate the API (without actual images)
+    print()
+    print("API Usage:")
+    print("  # Detect a card with hybrid approach")
+    print("  card_name, metadata = detector.detect_card(")
+    print("      image,                    # numpy array screenshot")
+    print("      traditional_method,       # fallback CV function")
+    print("      *args, **kwargs           # args for traditional method")
+    print("  )")
+    print()
+    print("  # Check detection method used")
+    print("  print(f'Detected {card_name} via {metadata[\"method\"]}')")
+    print("  # Output: 'Detected goblin_barrel via model' or '... via traditional_cv'")
+    print()
 
-        # Use hybrid detection (model + fallback)
-        card_name, metadata = detector.detect_card(
-            image,
-            identify_hand_cards,  # Traditional method as fallback
-            emulator,
-            card_index
-        )
-
-        print(f"Detected: {card_name} via {metadata['method']}")
-    """)
+    # Example with configuration
+    print("Creating detector from config:")
+    config = {
+        "model_type": None,  # No model for this demo
+        "use_model_first": True,
+        "confidence_threshold": 0.7,
+    }
+    detector2 = create_detector_from_config(config)
+    print(f"✓ Detector from config: threshold={detector2.model_confidence_threshold}")
 
 
 def example_configuration_options():
@@ -146,6 +153,34 @@ def example_configuration_options():
             print(f"  Confidence threshold: {config.get('confidence_threshold', 0.7)}")
 
 
+def example_card_name_normalization():
+    """Example 5: Card name normalization."""
+    print("\n=== Example 5: Card name normalization ===")
+
+    from pyclashbot.detection.roboflow_model import normalize_card_name
+
+    # Test various input formats
+    test_cases = [
+        "Goblin Barrel",      # Title case with space
+        "goblin_curse",       # Snake case (mapped)
+        "Giant Snowball",     # Multi-word
+        "P.E.K.K.A",          # With periods
+        "Mini P.E.K.K.A",     # Multi-word with periods
+        "X-Bow",              # With hyphen
+        "hog_rider",          # Snake case (mapped)
+        "fireball",           # Already normalized
+    ]
+
+    print("Card name normalization examples:")
+    print("-" * 50)
+    for name in test_cases:
+        normalized = normalize_card_name(name)
+        if name != normalized:
+            print(f"  '{name}' -> '{normalized}'")
+        else:
+            print(f"  '{name}' (unchanged)")
+
+
 def main():
     """Run all examples."""
     print("=" * 60)
@@ -157,6 +192,7 @@ def main():
     example_with_roboflow()
     example_card_detection_integration()
     example_configuration_options()
+    example_card_name_normalization()
 
     print("\n" + "=" * 60)
     print("For more information, see:")

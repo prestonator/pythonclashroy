@@ -252,6 +252,70 @@ config = {
 2. Adjust the fallback behavior to rely more on traditional CV
 3. Use a different model version or provider
 
+### Card names not matching internal IDs
+
+The bot uses internal card names like `"goblin_barrel"`, `"barb_barrel"`, `"gob_curse"`. If your Roboflow model uses different names (e.g., `"Goblin Barrel"`, `"goblin_curse"`), the built-in normalization will handle common cases automatically.
+
+**For custom mappings**, add entries to `ROBOFLOW_TO_INTERNAL_NAME` in `roboflow_model.py`:
+
+```python
+ROBOFLOW_TO_INTERNAL_NAME = {
+    "Your Model Name": "internal_name",
+    # ... existing mappings
+}
+```
+
+### Windows-specific issues
+
+**SSL Certificate Errors**: If you encounter SSL errors on Windows:
+```bash
+pip install --upgrade certifi
+```
+
+**Firewall blocking API calls**: The Roboflow inference SDK requires internet access to `detect.roboflow.com`. Ensure your firewall allows outbound HTTPS connections.
+
+**Path issues with reference images**: Use forward slashes or raw strings for paths:
+```python
+# Good
+folder = "pyclashbot/detection/reference_images/cards"
+folder = r"pyclashbot\detection\reference_images\cards"
+
+# Bad (escape issues)
+folder = "pyclashbot\\detection\\reference_images\\cards"
+```
+
+### Workflow predictions not being extracted
+
+If your Roboflow workflow returns predictions but the bot doesn't detect them, check:
+
+1. **Response format**: Enable debug logging to see the workflow response structure:
+   ```python
+   import logging
+   logging.getLogger("pyclashbot.detection.roboflow_model").setLevel(logging.DEBUG)
+   ```
+
+2. **Custom workflow outputs**: The bot looks for predictions in these locations:
+   - `result["predictions"]`
+   - `result["output"]["predictions"]`
+   - `result["results"][*]["predictions"]`
+
+   If your workflow uses a different structure, you may need to customize `_predict_with_workflow`.
+
+### Confidence threshold validation errors
+
+```
+ValueError: Confidence must be between 0.0 and 1.0
+```
+
+**Solution**: Ensure all confidence values are decimals between 0 and 1:
+```python
+# Correct
+confidence=0.5  # 50% confidence
+
+# Wrong
+confidence=50   # This is invalid!
+```
+
 ## Further Reading
 
 - [Roboflow Documentation](https://docs.roboflow.com/)

@@ -34,8 +34,18 @@ class HybridDetector:
         Args:
             model: ML model to use for detection (optional)
             use_model_first: Whether to try model detection before CV
-            model_confidence_threshold: Minimum confidence to trust model results
+            model_confidence_threshold: Minimum confidence to trust model results (0.0-1.0)
+
+        Raises:
+            ValueError: If model_confidence_threshold is not in range [0.0, 1.0]
         """
+        # Validate confidence threshold
+        if not 0.0 <= model_confidence_threshold <= 1.0:
+            raise ValueError(
+                f"model_confidence_threshold must be between 0.0 and 1.0, "
+                f"got {model_confidence_threshold}"
+            )
+
         self.model = model
         self.use_model_first = use_model_first
         self.model_confidence_threshold = model_confidence_threshold
@@ -130,11 +140,21 @@ def create_detector_from_config(config: dict) -> HybridDetector:
             - model_type: 'roboflow', 'dummy', or None
             - model_config: Model-specific configuration
             - use_model_first: Whether to prioritize model detection
-            - confidence_threshold: Minimum confidence for model results
+            - confidence_threshold: Minimum confidence for model results (0.0-1.0)
 
     Returns:
         HybridDetector: Configured detector instance
+
+    Raises:
+        ValueError: If confidence_threshold is not in range [0.0, 1.0]
     """
+    # Validate confidence threshold early
+    confidence_threshold = config.get("confidence_threshold", 0.7)
+    if not 0.0 <= confidence_threshold <= 1.0:
+        raise ValueError(
+            f"confidence_threshold must be between 0.0 and 1.0, got {confidence_threshold}"
+        )
+
     model = None
     model_type = config.get("model_type")
 
@@ -148,5 +168,5 @@ def create_detector_from_config(config: dict) -> HybridDetector:
     return HybridDetector(
         model=model,
         use_model_first=config.get("use_model_first", True),
-        model_confidence_threshold=config.get("confidence_threshold", 0.7),
+        model_confidence_threshold=confidence_threshold,
     )

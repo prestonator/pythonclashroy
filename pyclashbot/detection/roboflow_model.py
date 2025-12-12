@@ -5,12 +5,110 @@ This module provides integration with Roboflow's inference API for
 improved card and object detection in Clash Royale.
 """
 
+import logging
 import os
+import re
 from typing import Any
 
 import numpy as np
 
 from pyclashbot.detection.model_interface import DetectionModel
+
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# CARD NAME NORMALIZATION
+# =============================================================================
+# Mapping between Roboflow model output names and internal code card names.
+# Add entries here when Roboflow model uses different naming conventions.
+
+ROBOFLOW_TO_INTERNAL_NAME: dict[str, str] = {
+    # Common naming variations (Roboflow output -> internal name)
+    "Goblin Barrel": "goblin_barrel",
+    "goblin_curse": "gob_curse",
+    "Goblin Curse": "gob_curse",
+    "Giant Snowball": "snowball",
+    "giant_snowball": "snowball",
+    "Barbarian Barrel": "barb_barrel",
+    "barbarian_barrel": "barb_barrel",
+    "X-Bow": "xbow",
+    "x-bow": "xbow",
+    "x_bow": "xbow",
+    "Hog Rider": "hog",
+    "hog_rider": "hog",
+    "Mini P.E.K.K.A": "mini_pekka",
+    "Mini PEKKA": "mini_pekka",
+    "P.E.K.K.A": "pekka",
+    "PEKKA": "pekka",
+    "Electro Wizard": "ewiz",
+    "electro_wizard": "ewiz",
+    "Ice Wizard": "ice_wiz",
+    "ice_wizard": "ice_wiz",
+    "Mega Knight": "mega_knight",
+    "Inferno Dragon": "inferno_dragon",
+    "Inferno Tower": "inferno_tower",
+    "Skeleton Army": "skarmy",
+    "skeleton_army": "skarmy",
+    "Minion Horde": "minion_horde",
+    "Three Musketeers": "3m",
+    "three_musketeers": "3m",
+    "Goblin Gang": "goblin_gang",
+    "Royal Giant": "royal_giant",
+    "Elite Barbarians": "ebarbs",
+    "elite_barbarians": "ebarbs",
+    "Battle Ram": "battle_ram",
+    # Evolution cards
+    "Evo Goblin Barrel": "evo_goblin_barrel",
+    "Evo Fire Cracker": "evo_fire_cracker",
+    "evo_firecracker": "evo_fire_cracker",
+    "Evo Battle Ram": "evo_battle_ram",
+}
+
+
+def normalize_card_name(roboflow_name: str) -> str:
+    """Normalize a card name from Roboflow output to internal format.
+
+    This handles various naming conventions:
+    - "Goblin Barrel" -> "goblin_barrel"
+    - "goblin_curse" -> "gob_curse" (using mapping)
+    - "Mini P.E.K.K.A" -> "mini_pekka"
+
+    Args:
+        roboflow_name: Card name as returned by Roboflow model
+
+    Returns:
+        Normalized card name for internal use
+    """
+    if not roboflow_name:
+        return "unknown"
+
+    # First check explicit mapping
+    if roboflow_name in ROBOFLOW_TO_INTERNAL_NAME:
+        return ROBOFLOW_TO_INTERNAL_NAME[roboflow_name]
+
+    # Convert to snake_case: "Goblin Barrel" -> "goblin_barrel"
+    normalized = roboflow_name.strip()
+
+    # Remove periods and special chars (P.E.K.K.A -> PEKKA)
+    normalized = re.sub(r'\.', '', normalized)
+
+    # Replace spaces and hyphens with underscores
+    normalized = re.sub(r'[\s\-]+', '_', normalized)
+
+    # Convert to lowercase
+    normalized = normalized.lower()
+
+    # Remove duplicate underscores
+    normalized = re.sub(r'_+', '_', normalized)
+
+    # Strip leading/trailing underscores
+    normalized = normalized.strip('_')
+
+    # Check mapping again with normalized name
+    if normalized in ROBOFLOW_TO_INTERNAL_NAME:
+        return ROBOFLOW_TO_INTERNAL_NAME[normalized]
+
+    return normalized
 
 
 class RoboflowModel(DetectionModel):
@@ -39,7 +137,16 @@ class RoboflowModel(DetectionModel):
             **kwargs: Additional inference parameters
 
         Note: Provide either model_id OR workflow_id, not both. If both provided, workflow_id takes precedence.
+
+        Raises:
+            ValueError: If confidence is not in range [0.0, 1.0]
         """
+        # Validate confidence threshold
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError(
+                f"Confidence must be between 0.0 and 1.0, got {confidence}"
+            )
+
         self.api_key = api_key or os.environ.get("ROBOFLOW_API_KEY")
         self.model_id = model_id
         self.workflow_id = workflow_id
@@ -49,7 +156,9 @@ class RoboflowModel(DetectionModel):
 
         # Validate that workflow_id or model_id is provided, but warn if both
         if workflow_id and model_id:
-            print("Warning: Both workflow_id and model_id provided. Using workflow_id, ignoring model_id.")
+            logger.warning(
+                "Both workflow_id and model_id provided. Using workflow_id, ignoring model_id."
+            )
             self._use_workflow = True
         elif workflow_id:
             self._use_workflow = True
@@ -76,12 +185,11 @@ class RoboflowModel(DetectionModel):
 
                 self._available = True
             except ImportError:
-                print(
-                    "Warning: inference-sdk not installed. "
-                    "Install with: pip install inference-sdk"
+                logger.warning(
+                    "inference-sdk not installed. Install with: pip install inference-sdk"
                 )
             except Exception as e:
-                print(f"Warning: Failed to initialize Roboflow client: {e}")
+                logger.warning(f"Failed to initialize Roboflow client: {e}")
 
     def predict(self, image: Any, **kwargs) -> list[dict[str, Any]]:
         """Run inference using Roboflow model or workflow.
@@ -118,7 +226,7 @@ class RoboflowModel(DetectionModel):
                 return self._predict_with_model(image_data)
 
         except Exception as e:
-            print(f"Warning: Roboflow inference failed: {e}")
+            logger.warning(f"Roboflow inference failed: {e}")
             return []
 
     def _predict_with_model(self, image_data: Any) -> list[dict[str, Any]]:
@@ -143,9 +251,10 @@ class RoboflowModel(DetectionModel):
         predictions = []
         if result and isinstance(result, dict) and "predictions" in result:
             for pred in result["predictions"]:
+                raw_class = pred.get("class", "unknown")
                 predictions.append(
                     {
-                        "class": pred.get("class", "unknown"),
+                        "class": normalize_card_name(raw_class),
                         "confidence": pred.get("confidence", 0.0),
                         "bbox": [
                             pred.get("x", 0) - pred.get("width", 0) / 2,
@@ -156,6 +265,7 @@ class RoboflowModel(DetectionModel):
                         "center": (pred.get("x", 0), pred.get("y", 0)),
                         # Store raw prediction for advanced use cases
                         "raw": pred,
+                        "raw_class": raw_class,  # Original class name before normalization
                     }
                 )
 
@@ -185,7 +295,7 @@ class RoboflowModel(DetectionModel):
                 f"Expected format: 'workspace-name/workflow-id'. "
                 f"Workspace is required for workflow execution."
             )
-            print(f"Error: {error_msg}")
+            logger.error(error_msg)
             raise ValueError(error_msg)
 
         if self.inference_client is None:
@@ -233,6 +343,13 @@ class RoboflowModel(DetectionModel):
                                     for pred in res_preds:
                                         predictions.append(self._standardize_prediction(pred))
 
+        # Log if no predictions were extracted for debugging workflow issues
+        if not predictions and result:
+            logger.debug(
+                f"No predictions extracted from workflow response. "
+                f"Response keys: {list(result.keys()) if isinstance(result, dict) else type(result)}"
+            )
+
         return predictions
 
     def _standardize_prediction(self, pred: dict) -> dict[str, Any]:
@@ -242,10 +359,11 @@ class RoboflowModel(DetectionModel):
             pred: Raw prediction dict from Roboflow
 
         Returns:
-            dict: Standardized prediction
+            dict: Standardized prediction with normalized card name
         """
+        raw_class = pred.get("class", pred.get("class_name", "unknown"))
         return {
-            "class": pred.get("class", pred.get("class_name", "unknown")),
+            "class": normalize_card_name(raw_class),
             "confidence": pred.get("confidence", 0.0),
             "bbox": [
                 pred.get("x", 0) - pred.get("width", 0) / 2,
@@ -255,6 +373,7 @@ class RoboflowModel(DetectionModel):
             ],
             "center": (pred.get("x", 0), pred.get("y", 0)),
             "raw": pred,
+            "raw_class": raw_class,  # Original class name before normalization
         }
 
     def detect_battlefield_objects(self, image: Any, region: tuple[int, int, int, int] | None = None) -> list[dict[str, Any]]:
