@@ -295,7 +295,13 @@ def state_tree(
         return state_order.next_state(state)
 
     if state == "restart":
-        emulator.restart()
+        # Use non-forced restart so it will check if already ready
+        # This allows the bot to skip restart if emulator is already in a good state
+        if not emulator.restart(force=False):
+            logger.error("Restart failed after retries - attempting forced restart")
+            if not emulator.restart(force=True):
+                logger.error("Forced restart also failed")
+                return "fail"
         return state_order.next_state(state)
 
     if state == "randomize_deck":

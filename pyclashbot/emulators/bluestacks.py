@@ -14,7 +14,7 @@ from winreg import (
     QueryValueEx,
 )
 
-from pyclashbot.bot.nav import check_if_on_clash_main_menu
+from pyclashbot.bot.nav import check_if_on_clash_main_menu, check_if_in_battle, wait_for_clash_main_menu
 from pyclashbot.emulators.adb_base import AdbBasedController
 
 DEBUG = False
@@ -46,11 +46,9 @@ class BlueStacksEmulatorController(AdbBasedController):
 
         self.render_settings = render_settings or {}
 
-        # Clean up our target instance only
-        self.stop()
-        while self._is_this_instance_running():  # Because Windows: I'm closing, also Windows: isn't closing
-            self.stop()
-            time.sleep(1)
+        # NOTE: We no longer stop the instance here unconditionally.
+        # Instead, try_connect_existing() will check if we can reuse the running instance.
+        # If that fails, restart(force=True) will handle stopping and starting fresh.
 
         # Discover install
         install_base = self._find_install_location()
@@ -103,8 +101,16 @@ class BlueStacksEmulatorController(AdbBasedController):
         # Reset our private adb server
         self._reset_adb_server()
 
+        # Try to connect to existing instance first (skip restart if already ready)
+        if self.try_connect_existing():
+            self.logger.log("[BlueStacks 5] Successfully connected to existing instance - no restart needed!")
+            return
+        
+        # If we couldn't connect to existing instance, do full restart
+        self.logger.log("[BlueStacks 5] No usable existing instance found, performing full restart...")
+        
         # Boot flow
-        while self.restart() is False:
+        while self.restart(force=True) is False:
             print("[BlueStacks 5] Restart failed, retrying...")
             time.sleep(2)
 
@@ -539,6 +545,117 @@ class BlueStacksEmulatorController(AdbBasedController):
             return False
         return False
 
+    def is_ready_to_play(self, max_screenshot_retries: int = 3) -> dict:
+        """Check if BlueStacks is already running with Clash Royale in a usable state.
+        
+        Returns a dict with:
+            - 'ready': True if ready to play without restart
+            - 'in_battle': True if currently in a battle
+            - 'on_main_menu': True if on main menu
+            - 'connected': True if ADB is connected
+            - 'running': True if instance is running
+        """
+        result = {
+            'ready': False,
+            'in_battle': False,
+            'on_main_menu': False,
+            'connected': False,
+            'running': False,
+        }
+        
+        # Check if instance is running
+        if not self._is_this_instance_running():
+            return result
+        result['running'] = True
+        
+        # Refresh port in case it changed
+        self._refresh_instance_port()
+        if not self.device_serial:
+            return result
+        
+        # Try to connect ADB
+        if not self._connect():
+            return result
+        result['connected'] = True
+        
+        # Try to take screenshot and check screen state (with retries)
+        for attempt in range(max_screenshot_retries):
+            try:
+                screenshot = self.screenshot()
+                if screenshot is None:
+                    time.sleep(0.5)
+                    continue
+                
+                # Check if in battle
+                if check_if_in_battle(self):
+                    result['in_battle'] = True
+                    result['ready'] = True
+                    return result
+                
+                # Check if on main menu
+                if check_if_on_clash_main_menu(self):
+                    result['on_main_menu'] = True
+                    result['ready'] = True
+                    return result
+                
+                # Screenshot worked but not in a recognized state
+                # This could be a loading screen, popup, or other transitional state
+                # We can still consider it "ready" since the emulator is responsive
+                result['ready'] = True
+                return result
+                
+            except Exception as e:
+                if DEBUG:
+                    print(f"[BlueStacks 5] Screenshot attempt {attempt + 1} failed: {e}")
+                time.sleep(0.5)
+        
+        # All screenshot attempts failed, but ADB is connected
+        # Mark as ready anyway - state machine can handle navigation
+        result['ready'] = True
+        return result
+
+    def try_connect_existing(self) -> bool:
+        """Attempt to connect to an already running BlueStacks instance.
+        
+        This method is called during initialization to check if we can skip
+        the full restart process. It handles:
+        1. Checking if the instance is already running
+        2. Connecting ADB
+        3. Detecting current game state (in battle, main menu, or other)
+        
+        Returns:
+            True if successfully connected to existing instance and ready to use,
+            False if a full restart is needed.
+        """
+        self.logger.log("[BlueStacks 5] Checking for existing running instance...")
+        
+        status = self.is_ready_to_play()
+        
+        if not status['running']:
+            self.logger.log("[BlueStacks 5] No running instance found.")
+            return False
+        
+        if not status['connected']:
+            self.logger.log("[BlueStacks 5] Instance running but ADB connection failed.")
+            return False
+        
+        if not status['ready']:
+            self.logger.log("[BlueStacks 5] Instance running but not in a ready state.")
+            return False
+        
+        # Log what state we found
+        if status['in_battle']:
+            self.logger.log("[BlueStacks 5] Detected running instance with ongoing battle - will continue battle.")
+            self.logger.change_status("Resuming existing battle...")
+        elif status['on_main_menu']:
+            self.logger.log("[BlueStacks 5] Detected running instance on main menu - skipping restart!")
+            self.logger.change_status("Connected to existing instance - ready to play!")
+        else:
+            self.logger.log("[BlueStacks 5] Detected running instance in transitional state - will navigate to main menu.")
+            self.logger.change_status("Connected to existing instance - navigating to main menu...")
+        
+        return True
+
     def start(self):
         """Start only this instance. Enforce config just before launching."""
         with suppress(Exception):
@@ -562,8 +679,40 @@ class BlueStacksEmulatorController(AdbBasedController):
             check=False,
         )
 
-    def restart(self) -> bool:
+    def restart(self, force: bool = False) -> bool:
+        """Restart the BlueStacks instance.
+        
+        Args:
+            force: If False (default), will first check if already ready and skip restart.
+                   If True, will always perform a full restart.
+        
+        Returns:
+            True if restart successful (or skipped because already ready), False on failure.
+        """
         start_ts = time.time()
+        
+        # Unless forced, check if we're already in a usable state
+        if not force:
+            status = self.is_ready_to_play()
+            if status['ready']:
+                if status['in_battle']:
+                    self.logger.log("[BlueStacks 5] Already in battle - skipping restart")
+                    self.logger.change_status("Resuming existing battle...")
+                    return True
+                elif status['on_main_menu']:
+                    self.logger.log("[BlueStacks 5] Already on main menu - skipping restart")
+                    self.logger.change_status("Already on main menu - ready to play!")
+                    return True
+                else:
+                    # Connected but in unknown state - try to navigate to main menu
+                    self.logger.log("[BlueStacks 5] Connected but in unknown state - attempting to navigate to main menu")
+                    self.logger.change_status("Navigating to main menu...")
+                    if wait_for_clash_main_menu(self, self.logger, deadspace_click=True):
+                        self.logger.log("[BlueStacks 5] Successfully navigated to main menu")
+                        return True
+                    # If navigation failed, fall through to full restart
+                    self.logger.log("[BlueStacks 5] Navigation to main menu failed - performing full restart")
+        
         self.logger.change_status("Starting BlueStacks 5 emulator restart process...")
 
         self.logger.change_status("Stopping pyclashbot BlueStacks 5 instance...")
