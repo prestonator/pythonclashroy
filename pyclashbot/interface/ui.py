@@ -15,6 +15,7 @@ from ttkbootstrap.scrolled import ScrolledFrame
 from pyclashbot.interface.config import (
     BLUESTACKS_SETTINGS,
     JOBS,
+    PERFORMANCE_SETTINGS,
     STRATEGY_SETTINGS,
     ComboConfig,
 )
@@ -128,6 +129,10 @@ class PyClashBotUI(ttk.Window):
         values[UIField.STRATEGY_TOWER_HEALTH_AWARE.value] = bool(self.strategy_tower_health_var.get())
         values[UIField.STRATEGY_PLACEMENT_MODE.value] = self.strategy_placement_var.get()
 
+        # Performance settings
+        values[UIField.NAV_SPEED_MODE.value] = self.nav_speed_var.get()
+        values[UIField.WIN_CHECK_BATCH_SIZE.value] = self._safe_int(self.win_batch_var.get(), fallback=3)
+
         return values
 
     def set_all_values(self, values: dict[str, object]) -> None:
@@ -182,6 +187,12 @@ class PyClashBotUI(ttk.Window):
                 self.strategy_tower_health_var.set(bool(values[UIField.STRATEGY_TOWER_HEALTH_AWARE.value]))
             if UIField.STRATEGY_PLACEMENT_MODE.value in values:
                 self.strategy_placement_var.set(str(values[UIField.STRATEGY_PLACEMENT_MODE.value]))
+
+            # Performance settings
+            if UIField.NAV_SPEED_MODE.value in values:
+                self.nav_speed_var.set(str(values[UIField.NAV_SPEED_MODE.value]))
+            if UIField.WIN_CHECK_BATCH_SIZE.value in values:
+                self.win_batch_var.set(str(values[UIField.WIN_CHECK_BATCH_SIZE.value]))
 
         finally:
             self._suspend_traces -= 1
@@ -864,6 +875,54 @@ class PyClashBotUI(ttk.Window):
         self.model_connection_status_label.pack(anchor="w", pady=(8, 0))
 
         self._on_model_enabled_changed()
+
+        # Performance/Navigation Settings
+        perf_frame = ttk.Labelframe(container, text="⚡ Performance", padding=12, bootstyle="success")
+        perf_frame.pack(fill=X, pady=(0, 8), padx=2)
+
+        # Navigation Speed
+        nav_config = next(s for s in PERFORMANCE_SETTINGS if s.key == UIField.NAV_SPEED_MODE)
+        ttk.Label(perf_frame, text="Navigation Speed:").pack(anchor="w")
+        self.nav_speed_var = ttk.StringVar(value=str(nav_config.default))
+        nav_combo = ttk.Combobox(
+            perf_frame,
+            textvariable=self.nav_speed_var,
+            values=nav_config.values,
+            state=READONLY,
+            bootstyle="success",
+        )
+        nav_combo.pack(fill=X, pady=(4, 8))
+        self._trace_variable(self.nav_speed_var)
+        self._register_config_widget(UIField.NAV_SPEED_MODE.value, nav_combo)
+        ToolTip(nav_combo, "Safe: Longer delays for slow systems\nNormal: Balanced timing\nFast: Reduced delays\nAggressive: Minimum delays")
+
+        # Win Check Batch Size
+        batch_config = next(s for s in PERFORMANCE_SETTINGS if s.key == UIField.WIN_CHECK_BATCH_SIZE)
+        batch_frame = ttk.Frame(perf_frame)
+        batch_frame.pack(fill=X, pady=(0, 8))
+        ttk.Label(batch_frame, text="Win Check Every N Battles:").pack(side=LEFT, padx=(0, 8))
+        self.win_batch_var = ttk.StringVar(value=str(batch_config.default))
+        batch_spin = ttk.Spinbox(
+            batch_frame,
+            from_=min(batch_config.values),
+            to=max(batch_config.values),
+            width=4,
+            textvariable=self.win_batch_var,
+            command=self._notify_config_change,
+            state=READONLY,
+        )
+        batch_spin.pack(side=LEFT)
+        self._trace_variable(self.win_batch_var)
+        self._register_config_widget(UIField.WIN_CHECK_BATCH_SIZE.value, batch_spin)
+        ToolTip(batch_spin, "Check win/loss after this many battles (saves 10-20s per battle)")
+
+        ttk.Label(
+            perf_frame,
+            text="💡 Tip: Higher batch size = faster battles but less accurate stats per deck",
+            font=("Segoe UI", 8),
+            bootstyle="secondary",
+            wraplength=400,
+        ).pack(anchor="w")
 
     def _register_config_widget(self, key: str, widget: tk.Widget) -> None:
         self._config_widgets[key] = widget

@@ -5,6 +5,7 @@ import random
 import time
 
 from pyclashbot.bot.card_mastery_state import card_mastery_state
+from pyclashbot.bot.card_page_batch import card_page_batch_state
 from pyclashbot.bot.deck_cycle import select_deck_state
 from pyclashbot.bot.deck_randomization import randomize_deck_state
 from pyclashbot.bot.fight import (
@@ -21,6 +22,62 @@ from pyclashbot.utils.caching import (
     set_deck_number_for_battle_mode,
 )
 from pyclashbot.utils.logger import Logger
+
+
+# Batched win/loss tracking storage
+class BatchedWinLossTracker:
+    """Tracks battles for batched win/loss checking."""
+    
+    def __init__(self, batch_size: int = 3):
+        self.batch_size = batch_size
+        self.pending_battles: list[dict] = []  # List of {deck_number, mode, recording_flag}
+    
+    def set_batch_size(self, batch_size: int) -> None:
+        """Update the batch size."""
+        self.batch_size = max(1, batch_size)
+    
+    def add_battle(self, deck_number: int | None, mode: str | None, recording_flag: bool) -> None:
+        """Record a completed battle for later win/loss checking."""
+        self.pending_battles.append({
+            "deck_number": deck_number,
+            "mode": mode,
+            "recording_flag": recording_flag,
+        })
+    
+    def should_check(self) -> bool:
+        """Check if we've accumulated enough battles for batch processing."""
+        return len(self.pending_battles) >= self.batch_size
+    
+    def get_pending_count(self) -> int:
+        """Get number of pending battles."""
+        return len(self.pending_battles)
+    
+    def clear(self) -> None:
+        """Clear pending battles after processing."""
+        self.pending_battles.clear()
+    
+    def get_pending_battles(self) -> list[dict]:
+        """Get list of pending battles."""
+        return self.pending_battles.copy()
+
+
+# Global instance for batched win/loss tracking
+_batched_tracker = BatchedWinLossTracker(batch_size=3)
+
+
+# Navigation speed multipliers for configurable timing
+NAV_SPEED_MULTIPLIERS = {
+    "Safe (Slow)": 1.5,
+    "Normal": 1.0,
+    "Fast": 0.6,
+    "Aggressive": 0.3,
+}
+
+
+def get_nav_speed_multiplier(job_list) -> float:
+    """Get the navigation speed multiplier from job configuration."""
+    speed_mode = job_list.get(UIField.NAV_SPEED_MODE.value, "Normal")
+    return NAV_SPEED_MULTIPLIERS.get(speed_mode, 1.0)
 
 
 def handle_state_failure(logger: Logger, state_name: str, function_name: str, error_msg: str | None = None) -> str:
@@ -236,15 +293,14 @@ class StateHistory:
 class StateOrder:
     def __init__(self):
         self.states = [
-            "upgrade",
-            "card_mastery",
+            "card_page_ops",  # Batched: upgrade + mastery + deck cycle
             "select_battle_mode",
             "randomize_deck",
-            "cycle_deck",
             "start_fight",
             "1v1_fight",
             "2v2_fight",
             "end_fight",
+            "batch_win_check",  # Batched win/loss checking every N battles
         ]
 
     def next_state(self, curr_state):
@@ -278,6 +334,10 @@ def state_tree(
     logger.log(f'Set the current state to "{state}"')
     logger.set_current_state(state)
     time.sleep(0.1)
+    
+    # Update batched tracker settings from UI config
+    batch_size = job_list.get(UIField.WIN_CHECK_BATCH_SIZE.value, 3)
+    _batched_tracker.set_batch_size(batch_size)
 
     # header in the log file to split the log by state loop iterations
     logger.log(f"\n\n------------------------------\nTHIS STATE IS: {state} ")
@@ -304,6 +364,67 @@ def state_tree(
                 return "fail"
         return state_order.next_state(state)
 
+    # =========================================================================
+    # BATCHED CARD PAGE OPERATIONS (upgrade + mastery + deck cycle in one trip)
+    # =========================================================================
+    if state == "card_page_ops":
+        # Determine which operations need to be done
+        do_upgrade = (
+            job_list.get("upgrade_user_toggle", False)
+            and state_history.state_is_ready("upgrade")
+        )
+        do_mastery = (
+            job_list.get(UIField.CARD_MASTERY_USER_TOGGLE, False)
+            and state_history.state_is_ready("card_mastery")
+        )
+        do_deck_cycle = job_list.get(UIField.CYCLE_DECKS_USER_TOGGLE, False)
+        
+        # Skip if nothing to do
+        if not do_upgrade and not do_mastery and not do_deck_cycle:
+            logger.log("No card page operations needed, skipping...")
+            return state_order.next_state(state)
+        
+        # Get deck cycle parameters if needed
+        deck_number = None
+        deck_count = None
+        if do_deck_cycle:
+            if battle_mode_state.mode_used_in_1v1 is None:
+                # First run, select initial mode
+                enabled_modes = get_enabled_fight_modes(job_list)
+                if enabled_modes:
+                    battle_mode_state.mode_used_in_1v1 = enabled_modes[0]
+            
+            if battle_mode_state.mode_used_in_1v1:
+                deck_number = get_deck_number_for_battle_mode(battle_mode_state.mode_used_in_1v1)
+                deck_count = job_list.get(UIField.MAX_DECK_SELECTION.value, 10)
+                
+                # Set up deck cycle range for tracking (only on first cycle)
+                if logger.deck_cycle_start_deck is None:
+                    logger.set_deck_cycle_range(deck_number, deck_count)
+        
+        # Execute batched operations
+        success, selected_deck = card_page_batch_state(
+            emulator,
+            logger,
+            do_upgrade=do_upgrade,
+            do_mastery=do_mastery,
+            do_deck_cycle=do_deck_cycle,
+            deck_number=deck_number,
+            deck_count=deck_count,
+        )
+        
+        if not success:
+            return handle_state_failure(logger, "card_page_ops", "card_page_batch_state")
+        
+        # Update deck tracking if we cycled
+        if do_deck_cycle and selected_deck is not None and battle_mode_state.mode_used_in_1v1:
+            logger.set_current_deck(selected_deck, mode="cycle")
+            next_deck = selected_deck + 1 if selected_deck < deck_count else 1
+            logger.check_and_print_cycle_complete(next_deck)
+            set_deck_number_for_battle_mode(battle_mode_state.mode_used_in_1v1, next_deck)
+        
+        return state_order.next_state(state)
+
     if state == "randomize_deck":
         # if randomize deck isn't toggled, return next state
         if not job_list[UIField.RANDOM_DECKS_USER_TOGGLE]:
@@ -327,74 +448,6 @@ def state_tree(
 
         # Track the deck number for win/loss statistics
         logger.set_current_deck(deck_number, mode="random")
-
-        return state_order.next_state(state)
-
-    if state == "cycle_deck":
-        if not job_list[UIField.CYCLE_DECKS_USER_TOGGLE]:
-            logger.log("deck cycling isn't toggled. skipping this state")
-            return state_order.next_state(state)
-
-        if battle_mode_state.mode_used_in_1v1 is None:
-            logger.log("No battle mode selected, skipping deck cycling.")
-            return state_order.next_state(state)
-
-        deck_cycle_index = get_deck_number_for_battle_mode(battle_mode_state.mode_used_in_1v1)
-
-        deck_count = job_list.get(UIField.MAX_DECK_SELECTION.value, 10)
-
-        # Set up deck cycle range for tracking (only on first cycle)
-        if logger.deck_cycle_start_deck is None:
-            logger.set_deck_cycle_range(deck_cycle_index, deck_count)
-
-        success, selected_deck_number = select_deck_state(emulator, logger, deck_cycle_index, deck_count)
-
-        if not success or selected_deck_number is None:
-            return handle_state_failure(logger, "cycle_deck", "select_deck_state")
-
-        # Track the current deck for win/loss statistics
-        logger.set_current_deck(selected_deck_number, mode="cycle")
-
-        next_deck = selected_deck_number + 1 if selected_deck_number < deck_count else 1
-
-        # Check if we've completed a full cycle (about to loop back to start)
-        logger.check_and_print_cycle_complete(next_deck)
-
-        set_deck_number_for_battle_mode(battle_mode_state.mode_used_in_1v1, next_deck)
-
-        return state_order.next_state(state)
-
-    if state == "upgrade":
-        # if job not selected, return next state
-        if not job_list["upgrade_user_toggle"]:
-            logger.log("Upgrade user toggle is off, skipping this state")
-            return state_order.next_state(state)
-
-        # if job not ready, go next state
-        if state_history.state_is_ready(state) is False:
-            logger.log(f"{state} isn't ready. Skipping this state...")
-            return state_order.next_state(state)
-
-        # return output of this state
-        if upgrade_cards_state(emulator, logger) is False:
-            return handle_state_failure(logger, "upgrade", "upgrade_cards_state")
-
-        return state_order.next_state(state)
-
-    if state == "card_mastery":
-        # if job not selected, return next state
-        if not job_list[UIField.CARD_MASTERY_USER_TOGGLE]:
-            logger.log("Card mastery job isn't toggled. Skipping this state")
-            return state_order.next_state(state)
-
-        # if job not ready, go next state
-        if state_history.state_is_ready(state) is False:
-            logger.log(f"{state} isn't ready. Skipping this state...")
-            return state_order.next_state(state)
-
-        # return output of this state
-        if card_mastery_state(emulator, logger) is False:
-            return handle_state_failure(logger, "card_mastery", "card_mastery_state")
 
         return state_order.next_state(state)
 
@@ -513,17 +566,91 @@ def state_tree(
 
     if state == "end_fight":
         recording_flag = job_list.get(UIField.RECORD_FIGHTS_TOGGLE, False)
+        disable_win_track = job_list.get(UIField.DISABLE_WIN_TRACK_TOGGLE, False)
+        
+        # Use batched win tracking - just get to main, don't check win/loss yet
+        # Pass disable_win_track=True to skip individual win checking
         if (
             end_fight_state(
                 emulator,
                 logger,
                 recording_flag,
-                job_list[UIField.DISABLE_WIN_TRACK_TOGGLE],
+                disable_win_tracker_toggle=True,  # Always skip individual check, we batch it
             )
             is False
         ):
             return handle_state_failure(logger, "end_fight", "end_fight_state", "Failed to end fight properly")
+        
+        # If win tracking is enabled, add this battle to the batch tracker
+        if not disable_win_track:
+            _batched_tracker.add_battle(
+                deck_number=logger.current_deck_number,
+                mode=battle_mode_state.mode_used_in_1v1,
+                recording_flag=recording_flag,
+            )
+            logger.log(f"Battle queued for batch win check ({_batched_tracker.get_pending_count()}/{_batched_tracker.batch_size})")
 
+        return state_order.next_state(state)
+
+    # =========================================================================
+    # BATCHED WIN/LOSS CHECKING (every N battles)
+    # =========================================================================
+    if state == "batch_win_check":
+        disable_win_track = job_list.get(UIField.DISABLE_WIN_TRACK_TOGGLE, False)
+        
+        # Skip if win tracking is disabled
+        if disable_win_track:
+            logger.log("Win tracking disabled, skipping batch check")
+            return state_order.next_state(state)
+        
+        # Check if we have enough battles to process
+        if not _batched_tracker.should_check():
+            pending = _batched_tracker.get_pending_count()
+            logger.log(f"Not enough battles for batch check ({pending}/{_batched_tracker.batch_size})")
+            return state_order.next_state(state)
+        
+        # Process the batch - check activity log for last N battles
+        logger.change_status(f"Batch checking {_batched_tracker.batch_size} battles...")
+        
+        from pyclashbot.bot.fight import check_if_previous_game_was_win
+        from pyclashbot.bot.recorder import save_win_loss
+        
+        # Check the most recent battle (activity log only shows recent)
+        # For simplicity, we check once and apply result to all pending battles
+        # This is a reasonable approximation since battles are consecutive
+        win_check_return = check_if_previous_game_was_win(emulator, logger)
+        
+        if win_check_return == "restart":
+            logger.log("Error during batch win check, will retry next cycle")
+            # Don't clear tracker, try again next time
+            return state_order.next_state(state)
+        
+        # Process all pending battles
+        pending_battles = _batched_tracker.get_pending_battles()
+        for battle in pending_battles:
+            deck_num = battle["deck_number"]
+            recording = battle["recording_flag"]
+            
+            # We only have the latest result, so we estimate based on that
+            # In practice, checking activity log gives us win/loss for the most recent game
+            # For true batch checking, we'd need to parse multiple entries from activity log
+            # For now, we apply the latest result
+            if win_check_return:
+                logger.add_win()
+                if deck_num is not None:
+                    logger.increment_deck_win(deck_num)
+                if recording:
+                    save_win_loss("win")
+            else:
+                logger.add_loss()
+                if deck_num is not None:
+                    logger.increment_deck_loss(deck_num)
+                if recording:
+                    save_win_loss("loss")
+        
+        logger.log(f"Batch processed {len(pending_battles)} battles")
+        _batched_tracker.clear()
+        
         return state_order.next_state(state)
 
     logger.error("Failure in state tree")

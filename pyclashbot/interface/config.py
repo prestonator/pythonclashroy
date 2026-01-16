@@ -142,6 +142,22 @@ STRATEGY_SETTINGS = [
     ),
 ]
 
+# Performance/Navigation Settings
+PERFORMANCE_SETTINGS = [
+    ComboConfig(
+        key=UIField.NAV_SPEED_MODE,
+        label="Navigation Speed",
+        values=["Safe (Slow)", "Normal", "Fast", "Aggressive"],
+        default="Normal",
+    ),
+    ComboConfig(
+        key=UIField.WIN_CHECK_BATCH_SIZE,
+        label="Win Check Batch Size",
+        values=[1, 2, 3, 4, 5],
+        default=3,
+    ),
+]
+
 # All user configuration keys (auto-generated from configs)
 USER_CONFIG_KEYS = (
     [job.key.value for job in JOBS]
@@ -165,6 +181,10 @@ USER_CONFIG_KEYS = (
         UIField.STRATEGY_AGGRESSION_LEVEL.value,
         UIField.STRATEGY_TOWER_HEALTH_AWARE.value,
         UIField.STRATEGY_PLACEMENT_MODE.value,
+    ]
+    + [  # Performance/Navigation settings
+        UIField.NAV_SPEED_MODE.value,
+        UIField.WIN_CHECK_BATCH_SIZE.value,
     ]
 )
 

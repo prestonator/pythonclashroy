@@ -60,6 +60,9 @@ class UIField(StrEnum):
     # Advanced Strategy Settings
     STRATEGY_TOWER_HEALTH_AWARE = "strategy_tower_health_aware"
     STRATEGY_PLACEMENT_MODE = "strategy_placement_mode"
+    # Performance/Navigation Settings
+    NAV_SPEED_MODE = "nav_speed_mode"
+    WIN_CHECK_BATCH_SIZE = "win_check_batch_size"
 
 
 BATTLE_STAT_LABELS: dict[StatField, str] = {

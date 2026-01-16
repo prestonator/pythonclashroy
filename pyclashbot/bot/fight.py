@@ -103,7 +103,7 @@ def do_fight_state(
         elif fight_mode_choosed == "Classic 2v2":
             logger.increment_classic_2v2_fights()
 
-    time.sleep(10)
+    time.sleep(3)  # Reduced from 10s for faster battle cycles
     return True
 
 

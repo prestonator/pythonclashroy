@@ -59,7 +59,7 @@ def collect_card_mastery_rewards(emulator, logger: Logger) -> bool:
             collect_first_mastery_reward(emulator)
             logger.change_status("Collected a card mastery reward!")
             logger.add_card_mastery_reward_collection()
-            time.sleep(2)
+            time.sleep(1)  # Reduced from 2s for faster collection
 
     # get to clash main
     logger.change_status("Returning to clash main menu")

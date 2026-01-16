@@ -260,7 +260,7 @@ def get_to_card_page_from_clash_main(
         CARD_PAGE_ICON_FROM_CLASH_MAIN[0],
         CARD_PAGE_ICON_FROM_CLASH_MAIN[1],
     )
-    time.sleep(2.5)
+    time.sleep(1.5)  # Reduced from 2.5s for faster navigation
 
     # while not on the card page, cycle the card page
     while not check_if_on_card_page(emulator):
@@ -272,7 +272,7 @@ def get_to_card_page_from_clash_main(
             CARD_PAGE_ICON_FROM_CARD_PAGE[0],
             CARD_PAGE_ICON_FROM_CARD_PAGE[1],
         )
-        time.sleep(3)
+        time.sleep(1)  # Reduced from 3s for faster navigation
 
     logger.change_status(status="Made it to card page")
 
